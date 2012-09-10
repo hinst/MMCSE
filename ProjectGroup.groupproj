@@ -1,0 +1,44 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{4832098b-5c82-4ae7-9057-ae4f5f9b139c}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Projects Include="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" />
+    <Projects Include="mmcse_project.dproj" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Default.Personality</Borland.Personality>
+    <Borland.ProjectType />
+    <BorlandProject>
+<BorlandProject xmlns=""><Default.Personality></Default.Personality></BorlandProject></BorlandProject>
+  </ProjectExtensions>
+  <Target Name="mmcse_project">
+    <MSBuild Projects="mmcse_project.dproj" Targets="" />
+  </Target>
+  <Target Name="mmcse_project:Clean">
+    <MSBuild Projects="mmcse_project.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="mmcse_project:Make">
+    <MSBuild Projects="mmcse_project.dproj" Targets="Make" />
+  </Target>
+  <Target Name="Emulator">
+    <MSBuild Projects="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" Targets="" />
+  </Target>
+  <Target Name="Emulator:Clean">
+    <MSBuild Projects="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="Emulator:Make">
+    <MSBuild Projects="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" Targets="Make" />
+  </Target>
+  <Target Name="Build">
+    <CallTarget Targets="mmcse_project;Emulator" />
+  </Target>
+  <Target Name="Clean">
+    <CallTarget Targets="mmcse_project:Clean;Emulator:Clean" />
+  </Target>
+  <Target Name="Make">
+    <CallTarget Targets="mmcse_project:Make;Emulator:Make" />
+  </Target>
+  <Import Condition="Exists('$(MSBuildBinPath)\Borland.Group.Targets')" Project="$(MSBuildBinPath)\Borland.Group.Targets" />
+</Project>
