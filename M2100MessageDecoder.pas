@@ -9,9 +9,9 @@ uses
   Classes,
   Contnrs,
 
-  LogEntityFace,
-  LogEntityWrapper,
-  NoLogEntityWrapper,
+  CustomLogEntity,
+  DefaultLogEntity,
+  EmptyLogEntity,
 
   StreamVisualizer,
   M2100Command,
@@ -27,7 +27,7 @@ type
       // does not owns the stream
     constructor Create(const aStream: TStream);
   private
-    fLog: ILogEntity;
+    fLog: TCustomLog;
     fStream: TStream;
     fMessage: TM2100Message;
     function ReadLength(out aDoubleLength: boolean): integer;
@@ -40,8 +40,9 @@ type
     procedure ReadCheckSum;
     {$ENDREGION}
     procedure LogDecoding(const aText: string);
+    procedure ReplaceLog(const aLog: TCustomLog);
   public
-    property Log: ILogEntity read fLog write fLog;
+    property Log: TCustomLog read fLog write ReplaceLog;
     property Stream: TStream read fStream;
     property Msg: TM2100Message read fMessage;
     procedure Decode; overload;
@@ -72,7 +73,7 @@ end;
 constructor TM2100MessageDecoder.Create(const aStream: TStream);
 begin
   inherited Create;
-  fLog := TNoLog.Create;
+  fLog := TEmptyLog.Create;
   fStream := aStream;
   fMessage := TM2100Message.Create
 end;
@@ -134,11 +135,18 @@ begin
   initialPosition := Stream.Position;
   while Stream.Position - initialPosition < aCommand.Length do
   begin
+    subCommandId := 0;
     Stream.ReadBuffer(subCommandId, 1);
     subCommand := ReadSubCommand(subCommandId);
     aCommand.SubCommands.Add(subCommand);
     LogDecoding('Subcommand decoded.');
   end;
+end;
+
+procedure TM2100MessageDecoder.ReplaceLog(const aLog: TCustomLog);
+begin
+  Log.Free;
+  fLog := aLog;
 end;
 
 function TM2100MessageDecoder.ReadSubCommand(const aId: byte): TM2100SubCommand;
@@ -158,10 +166,12 @@ begin
 end;
 
 procedure TM2100MessageDecoder.LogDecoding(const aText: string);
+var
+  text: string;
 begin
   {$IFDEF DEBUG_LOG_MESSAGE_DECODING_STAGES}
-  WriteLN(aText + ' @' + IntToStr(Stream.Position));
-  //Log.Write(aText);
+  text := aText + ' @' + IntToStr(Stream.Position);
+  Log.Write(text);
   {$ENDIF}
 end;
 
@@ -173,7 +183,7 @@ begin
   decoder := nil;
   try
     decoder := TM2100MessageDecoder.Create(aStream);
-    decoder.Log := TLog.Create('Decoder', GlobalLogManager);
+    decoder.Log := TLog.Create(GlobalLogManager, 'Decoder');
     decoder.Decode;
     result := decoder.Msg;
     decoder.Free;

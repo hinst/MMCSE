@@ -4,7 +4,9 @@
   </PropertyGroup>
   <ItemGroup />
   <ItemGroup>
+    <Projects Include="..\LogLibraryForDelphi\LogLibrary4Delphi.dproj" />
     <Projects Include="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" />
+    <Projects Include="..\UnitsForDelphi\Units4Delphi.dproj" />
     <Projects Include="mmcse_project.dproj" />
   </ItemGroup>
   <ProjectExtensions>
@@ -31,14 +33,32 @@
   <Target Name="Emulator:Make">
     <MSBuild Projects="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" Targets="Make" />
   </Target>
+  <Target Name="LogLibrary4Delphi">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogLibrary4Delphi.dproj" Targets="" />
+  </Target>
+  <Target Name="LogLibrary4Delphi:Clean">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogLibrary4Delphi.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="LogLibrary4Delphi:Make">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogLibrary4Delphi.dproj" Targets="Make" />
+  </Target>
+  <Target Name="Units4Delphi">
+    <MSBuild Projects="..\UnitsForDelphi\Units4Delphi.dproj" Targets="" />
+  </Target>
+  <Target Name="Units4Delphi:Clean">
+    <MSBuild Projects="..\UnitsForDelphi\Units4Delphi.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="Units4Delphi:Make">
+    <MSBuild Projects="..\UnitsForDelphi\Units4Delphi.dproj" Targets="Make" />
+  </Target>
   <Target Name="Build">
-    <CallTarget Targets="mmcse_project;Emulator" />
+    <CallTarget Targets="mmcse_project;Emulator;LogLibrary4Delphi;Units4Delphi" />
   </Target>
   <Target Name="Clean">
-    <CallTarget Targets="mmcse_project:Clean;Emulator:Clean" />
+    <CallTarget Targets="mmcse_project:Clean;Emulator:Clean;LogLibrary4Delphi:Clean;Units4Delphi:Clean" />
   </Target>
   <Target Name="Make">
-    <CallTarget Targets="mmcse_project:Make;Emulator:Make" />
+    <CallTarget Targets="mmcse_project:Make;Emulator:Make;LogLibrary4Delphi:Make;Units4Delphi:Make" />
   </Target>
   <Import Condition="Exists('$(MSBuildBinPath)\Borland.Group.Targets')" Project="$(MSBuildBinPath)\Borland.Group.Targets" />
 </Project>

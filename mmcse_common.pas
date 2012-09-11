@@ -3,10 +3,10 @@ unit mmcse_common;
 interface
 
 uses
-  PublicLogManagerFace;
+  CustomLogManager;
 
 var
-  GlobalLogManager: ILogManager;
+  GlobalLogManager: TCustomLogManager;
 
 implementation
 

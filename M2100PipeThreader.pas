@@ -6,8 +6,8 @@ uses
   SysUtils,
   Classes,
 
-  NoLogEntityWrapper,
-  LogEntityFace,
+  CustomLogEntity,
+  EmptyLogEntity,
 
   ExceptionTracer,
   StreamVisualizer,
@@ -21,11 +21,12 @@ type
   public
     constructor Create; reintroduce;
   protected
-    fLog: ILogEntity;
+    fLog: TCustomLog;
     procedure PerformExecution;
     procedure Execute; override;
+    procedure ReplaceLog(const aLog: TCustomLog);
   public
-    property Log: ILogEntity read fLog write fLog;
+    property Log: TCustomLog read fLog write ReplaceLog;
   end;
 
 implementation
@@ -33,7 +34,7 @@ implementation
 constructor TM2100PipeThread.Create;
 begin
   inherited Create(true);
-  fLog := TNoLog.Create;
+  fLog := TEmptyLog.Create;
 end;
 
 procedure TM2100PipeThread.Execute;
@@ -64,7 +65,7 @@ begin
   repeat
     memoryStream := pipe.Read;
     Rewind(memoryStream);
-    WriteLN('Stream received: ' + ToText(memoryStream));
+    Log.Write('Stream received: ' + ToText(memoryStream));
     Rewind(memoryStream);
     m := TM2100MessageDecoder.Decode(memoryStream);
     Log.Write('Message decoded: ' + m.ToText);
@@ -72,6 +73,12 @@ begin
     memoryStream.Free;
   until false;
   pipe.Free;
+end;
+
+procedure TM2100PipeThread.ReplaceLog(const aLog: TCustomLog);
+begin
+  Log.Free;
+  fLog := aLog;
 end;
 
 end.

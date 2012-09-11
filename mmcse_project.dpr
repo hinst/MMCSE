@@ -3,45 +3,41 @@ program mmcse_project;
 {$APPTYPE CONSOLE}
 
 uses
-  madExcept,
-  madLinkDisAsm,
-  madListHardware,
-  madListProcesses,
-  madListModules,
   SysUtils,
   Classes,
   WindowsPipes,
   M2Pipe,
-  LogLibraryDynamicModule,
-  LogGlobalModule,
-  PublicLogManagerFace,
-  PublicLogFormatFace,
-  PublicLogWriterFace,
-  PublicLogTextFormat,
-  LogEntityFace,
-  LogEntityWrapper,
+
+  CustomLogManager,
+  PlainLogManager,
+  CustomLogEntity,
+  DefaultLogEntity,
+  CustomLogWriter,
+  ConsoleLogWriter,
+  
   StreamVisualizer,
   M2100MessageDecoder,
   M2100PipeThreader,
   ExceptionTracer,
   mmcse_common,
   M2100Command,
-  M2100Message;
+  M2100Message,
+  M2100Switcher;
 
 type
   TApplication = class
   public
     constructor Create;
   private
-    fLog: ILogEntity;
-    fLogManager: ILogManager;
+    fLog: TCustomLog;
+    fLogManager: TCustomLogManager;
     fThread: TM2100PipeThread;
     procedure InitializeLog;
     procedure ActualRun;
     procedure SafeRun;
   public
-    property Log: ILogEntity read fLog;
-    property LogManager: ILogManager read fLogManager;
+    property Log: TCustomLog read fLog;
+    property LogManager: TCustomLogManager read fLogManager;
     property Thread: TM2100PipeThread read fThread;
     procedure Run;
     destructor Destroy; override;
@@ -55,7 +51,7 @@ end;
 procedure TApplication.ActualRun;
 begin
   fThread := TM2100PipeThread.Create;
-  Thread.Log := TLog.Create('PT', LogManager);
+  Thread.Log := TLog.Create(LogManager, 'PT');
   Thread.Resume;
   Thread.WaitFor;
 end;
@@ -68,24 +64,20 @@ end;
 
 procedure TApplication.InitializeLog;
 var
-  clw: ILogWriterExternal;
-  fmt: ILogFormatExternal;
+  consoleLogWriter: TCustomLogWriter;
 begin
-  fLogManager := GlobalLogFace.CreateLogManager;
+  fLogManager := TPlainLogManager.Create;
   GlobalLogManager := LogManager;
-  fLog := TLog.Create('App', LogManager);
-  clw := GlobalLogFace.CreateConsoleLogWriter;
-  (clw as IHasWriteProcedure).WriteProcedure := @ WriteLine;
-  fmt := GlobalLogFace.CreateSimpleTextLogFormat;
-  (fmt as IHasFormatString).FormatString := 'OBJECT: TEXT';
-  clw.Format := fmt;
-  LogManager.AddWriter(clw);
+  fLog := TLog.Create(LogManager, 'APP');
+  consoleLogWriter := TConsoleLogWriter.Create;
+  LogManager.AddWriter(consoleLogWriter);
 end;
 
 procedure TApplication.Run;
 begin
   Log.Write('Now running application...');
   SafeRun;
+  Log.Write('Now ending application...');
 end;
 
 procedure TApplication.SafeRun;
@@ -103,7 +95,6 @@ end;
 
 destructor TApplication.Destroy;
 begin
-  WriteLN('Application is releasing global log manager...');
   GlobalLogManager := nil;
   inherited;
 end;
@@ -112,13 +103,7 @@ var
   application: TApplication;
 
 begin
-  InitializeLogLibrary(GetEnvironmentVariable('LOGLIBRARY')
-    + PathDelim + 'Library' + PathDelim + 'LogLibrary.dll');
   application := TApplication.Create;
   application.Run;
   application.Free;
-  WriteLN('GLOBAL: Releasing log library');
-  FinalizeLogLibrary;
-  WriteLN('GLOBAL: EXECUTION END.');
-  Sleep(1000);
 end.
