@@ -7,8 +7,9 @@ uses
   Classes,
   Contnrs,
 
-  UAdditionalExceptions,
   UAdditionalTypes,
+  UAdditionalExceptions,
+  UCustomThread,
 
   CustomLogEntity,
   EmptyLogEntity,
@@ -45,17 +46,22 @@ type
     fLog: TCustomLog;
     fKeyers: TM2100KeyerList;
     fReceiveMessage: TReceiveMessageMethod;
-    fSendResponce: TSendResponceMethod;
+    fSendResponse: TSendResponceMethod;
+    fThread: TCustomThread;
     procedure ReplaceLog(const aLog: TCustomLog);
     procedure Initialize;
     procedure InitializeKeyers;
     function GetKeyersStatusAsByte: byte;
+    function GenerateResponse(const aMessage: TStream): TStream;
+    procedure ExecuteSendReceiveThread(const aThread: TCustomThread);
+    procedure ProcessMessage(const aStream: TStream);
     procedure Finalize;
   public
     property Log: TCustomLog read fLog write ReplaceLog;
     property Keyers: TM2100KeyerList read fKeyers;
     property ReceiveMessage: TReceiveMessageMethod read fReceiveMessage write fReceiveMessage;
-    property SendResponce: TSendResponceMethod read fSendResponce write fSendResponce;
+    property SendResponse: TSendResponceMethod read fSendResponse write fSendResponse;
+    property Thread: TCustomThread read fThread;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     destructor Destroy; override;
   end;
@@ -88,6 +94,7 @@ procedure TM2100Switcher.Initialize;
 begin
   fLog := TEmptyLog.Create;
   InitializeKeyers;
+  fThread := TCustomThread.Create(ExecuteSendReceiveThread);
 end;
 
 procedure TM2100Switcher.InitializeKeyers;
@@ -117,14 +124,30 @@ begin
     result := result or (1 shl 3);
 end;
 
+procedure TM2100Switcher.GenerateResponse(const aMessage: TStream);
+begin
+  
+end;
+
+procedure TM2100Switcher.ExecuteSendReceiveThread(const aThread: TCustomThread);
+var
+  incomingStream: TStream;
+begin
+  repeat
+    incomingStream := ReceiveMessage;
+    if Assigned(incomingStream) then
+      ProcessMessage(incomingStream);
+  until aThread.Stop;
+end;
+
+procedure TM2100Switcher.ProcessMessage(const aStream: TStream);
+begin
+
+end;
+
 procedure TM2100Switcher.Finalize;
 begin
   FreeAndNil(fKeyers);
-end;
-
-procedure TM2100Switcher.ReceiveMessage(const aMessage: TStream);
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
 end;
 
 destructor TM2100Switcher.Destroy;
