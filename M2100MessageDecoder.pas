@@ -13,7 +13,7 @@ uses
   DefaultLogEntity,
   EmptyLogEntity,
 
-  StreamVisualizer,
+  UStreamUtilities,
   M2100Command,
   M2100Message,
   mmcse_common;

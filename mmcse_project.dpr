@@ -3,10 +3,13 @@ program mmcse_project;
 {$APPTYPE CONSOLE}
 
 uses
+  madExcept,
+  madLinkDisAsm,
+  madListHardware,
+  madListProcesses,
+  madListModules,
   SysUtils,
   Classes,
-  WindowsPipes,
-  M2Pipe,
 
   CustomLogManager,
   PlainLogManager,
@@ -15,10 +18,9 @@ uses
   CustomLogWriter,
   ConsoleLogWriter,
   
-  StreamVisualizer,
+  M2Pipe,
   M2100MessageDecoder,
   M2100PipeThreader,
-  ExceptionTracer,
   mmcse_common,
   M2100Command,
   M2100Message,
@@ -31,14 +33,17 @@ type
   private
     fLog: TCustomLog;
     fLogManager: TCustomLogManager;
-    fThread: TM2100PipeThread;
+    fPipe: T2MPipe;
+    fSwitcher: TM2100Switcher;
     procedure InitializeLog;
+    procedure InitializeSwitcher;
     procedure ActualRun;
     procedure SafeRun;
   public
     property Log: TCustomLog read fLog;
     property LogManager: TCustomLogManager read fLogManager;
-    property Thread: TM2100PipeThread read fThread;
+    property Pipe: T2MPipe read fPipe;
+    property Switcher: TM2100Switcher read fSwitcher;
     procedure Run;
     destructor Destroy; override;
   end;
@@ -46,14 +51,6 @@ type
 procedure WriteLine(const aText: PChar); safecall;
 begin
   WriteLN(string(aText));
-end;
-
-procedure TApplication.ActualRun;
-begin
-  fThread := TM2100PipeThread.Create;
-  Thread.Log := TLog.Create(LogManager, 'PT');
-  Thread.Resume;
-  Thread.WaitFor;
 end;
 
 constructor TApplication.Create;
@@ -73,11 +70,21 @@ begin
   LogManager.AddWriter(consoleLogWriter);
 end;
 
-procedure TApplication.Run;
+procedure TApplication.InitializeSwitcher;
 begin
-  Log.Write('Now running application...');
-  SafeRun;
-  Log.Write('Now ending application...');
+  Log.Write('Now initializing switcher...');
+  fSwitcher := TM2100Switcher.Create;
+  fPipe := T2MPipe.Create('\\.\pipe\nVisionMCS');
+  Switcher.ReceiveMessage := Pipe.RequestReceiveMessage;
+  Switcher.Log := TLog.Create(LogManager, 'Switcher');
+end;
+
+procedure TApplication.ActualRun;
+begin
+  InitializeSwitcher;
+  Switcher.Thread.Resume;
+  Pipe.WaitForClient;
+  Switcher.Thread.WaitFor;
 end;
 
 procedure TApplication.SafeRun;
@@ -93,9 +100,20 @@ begin
   end;
 end;
 
+procedure TApplication.Run;
+begin
+  Log.Write('Now running application...');
+  SafeRun;
+  Log.Write('Now ending application...');
+end;
+
 destructor TApplication.Destroy;
 begin
-  GlobalLogManager := nil;
+  Log.Write('Now destroying application...');
+  FreeAndNil(fSwitcher);
+  FreeAndNil(fPipe);
+  FreeAndNil(fLog);
+  FreeAndNil(GlobalLogManager);
   inherited;
 end;
 

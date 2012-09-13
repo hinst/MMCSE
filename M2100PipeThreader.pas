@@ -10,7 +10,7 @@ uses
   EmptyLogEntity,
 
   ExceptionTracer,
-  StreamVisualizer,
+  UStreamUtilities,
 
   M2Pipe,
   M2100Message,
@@ -64,9 +64,9 @@ begin
   pipe.WaitForClient;
   repeat
     memoryStream := pipe.Read;
-    Rewind(memoryStream);
-    Log.Write('Stream received: ' + ToText(memoryStream));
-    Rewind(memoryStream);
+    StreamRewind(memoryStream);
+    Log.Write('Stream received: ' + StreamToText(memoryStream));
+    StreamRewind(memoryStream);
     m := TM2100MessageDecoder.Decode(memoryStream);
     Log.Write('Message decoded: ' + m.ToText);
     m.Free;

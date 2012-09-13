@@ -7,7 +7,7 @@ uses
   Classes,
   Contnrs,
 
-  StreamVisualizer;
+  UStreamUtilities;
 
 type
   TM2100SubCommand = class
