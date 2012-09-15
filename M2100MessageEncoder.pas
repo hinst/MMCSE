@@ -24,7 +24,19 @@ type
     procedure EstimateMessageLength;
     procedure EstimateCommandLength(const aCommand: TM2100Command);
     function EstimateSubCommandLength(const aSubCommand: TM2100SubCommand): integer;
-    function WriteCommands: integer;
+    function IsDoubleLength(const aLength: integer): boolean;
+    procedure WriteLength(const aLength: integer);
+
+    procedure WriteSTX;
+    procedure WriteMessageLength;
+    procedure WriteCommands;
+    procedure WriteCommand(const aCommand: TM2100Command);
+    procedure WriteSubCommands(const aCommand: TM2100Command);
+    procedure WriteSubCommand(const aSub: TM2100SubCommand);
+      // this method assigns Msg.CheckSum property
+    procedure EvaluateMessageCheckSum;
+      // Msg.CheckSum property should contain correct CheckSum value before this method is called
+    procedure WriteMessageCheckSum;
   public
     property Log: TCustomLog write SetLog;
     property Msg: TM2100Message read fMessage;
@@ -59,11 +71,14 @@ begin
   for i := 0 to Msg.Commands.Count - 1 do
   begin
     command := Msg.Commands[i] as TM2100Command;
+    Msg.Length := Msg.Length + 1; // +COMMAND ID: one byte
     EstimateCommandLength(command);
+    {$REGION ADD COMMAND LENGTH} // +COMMAND LENGTH: one or two bytes
     Msg.Length := Msg.Length + 1;
     if command.IsDoubleLength then
       Msg.Length := Msg.Length + 1;
-    Msg.Length := Msg.Length + command.Length;
+    {$ENDREGION}
+    Msg.Length := Msg.Length + command.Length; // + COMMAND BODY: as estimated
   end;
 end;
 
@@ -78,8 +93,7 @@ begin
     subCommand := aCommand.SubCommands[i] as TM2100SubCommand;
     aCommand.Length := aCommand.Length + 1 + EstimateSubCommandLength(subCommand);
   end;
-  if aCommand.Length >= 128 then
-    aCommand.IsDoubleLength := true;
+  aCommand.IsDoubleLength := IsDoubleLength(aCommand.Length);
 end;
 
 function TM2100MessageEncoder.EstimateSubCommandLength(const aSubCommand: TM2100SubCommand):
@@ -93,9 +107,90 @@ begin
   memory.Free;
 end;
 
-function TM2100MessageEncoder.WriteCommands: integer;
+function TM2100MessageEncoder.IsDoubleLength(const aLength: integer): boolean;
 begin
+  result := aLength >= 128;
+end;
 
+procedure TM2100MessageEncoder.WriteSTX;
+begin
+  Stream.WriteBuffer(Msg.STX, 1);
+end;
+
+procedure TM2100MessageEncoder.WriteCommands;
+var
+  i: integer;
+  command: TM2100Command;
+begin
+  for i := 0 to Msg.Commands.Count - 1 do
+  begin
+    command := Msg.Commands[i] as TM2100Command;
+    WriteCommand(command);
+  end;
+end;
+
+procedure TM2100MessageEncoder.WriteCommand(const aCommand: TM2100Command);
+begin
+  Stream.WriteBuffer(aCommand.CommandClass, 1);
+  WriteLength(aCommand.Length);
+  WriteSubCommands(aCommand);
+end;
+
+procedure TM2100MessageEncoder.WriteSubCommands(const aCommand: TM2100Command);
+var
+  i: integer;
+  subCommand: TM2100SubCommand;
+begin
+  for i := 0 to aCommand.SubCommands.Count - 1 do
+  begin
+    subCommand := aCommand.SubCommands[i] as TM2100SubCommand;
+    WriteSubCommand(subCommand);
+  end;
+end;
+
+procedure TM2100MessageEncoder.WriteSubCommand(const aSub: TM2100SubCommand);
+begin
+  Stream.WriteBuffer(aSub.id, 1);
+  aSub.SaveToStream(Stream);
+end;
+
+procedure TM2100MessageEncoder.EvaluateMessageCheckSum;
+var
+  currentByte: byte;
+  sum: integer;
+begin
+  Stream.Seek(1, soBeginning);
+  sum := 0;
+  while Stream.Position < Stream.Size do
+  begin
+    Stream.ReadBuffer(currentByte, 1);
+    sum := (sum + currentByte) and $00FF;
+  end;
+  Msg.CheckSum := TM2100Message.TwosComponent(sum);
+end;
+
+procedure TM2100MessageEncoder.WriteMessageCheckSum;
+begin
+  Stream.Seek(0, soEnd);
+  Stream.WriteBuffer(Msg.CheckSum, 1);
+end;
+
+procedure TM2100MessageEncoder.WriteLength(const aLength: integer);
+var
+  shortLength: byte;
+begin
+  if IsDoubleLength(aLength) then
+    Stream.WriteBuffer(aLength, 2)
+  else
+  begin
+    shortLength := byte(aLength) or 128;
+    Stream.WriteBuffer(shortLength, 1);
+  end;
+end;
+
+procedure TM2100MessageEncoder.WriteMessageLength;
+begin
+  WriteLength(Msg.Length);
 end;
 
 destructor TM2100MessageEncoder.Destroy;
@@ -107,6 +202,11 @@ end;
 procedure TM2100MessageEncoder.Encode;
 begin
   EstimateMessageLength;
+  WriteSTX;
+  WriteMessageLength;
+  WriteCommands;
+  EvaluateMessageCheckSum;
+  WriteMessageCheckSum;
 end;
 
 class function TM2100MessageEncoder.Encode(const aMessage: TM2100Message): TStream;

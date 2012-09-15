@@ -26,6 +26,7 @@ type
     function Read: TMemoryStream;
 
     function RequestReceiveMessage: TStream;
+    procedure SendResponse(const aStream: TStream);
   end;
 
 const
@@ -105,6 +106,21 @@ begin
   result := nil;
   if DataAvailable then
     result := Read;
+end;
+
+procedure T2MPipe.SendResponse(const aStream: TStream);
+var
+  writeResult: boolean;
+  buffer: array[0..T2MPIPE_BUFFER_SIZE] of byte;
+  size: DWORD;
+  resultSize: DWORD;
+begin
+  AssertPipeOpened;
+  size := aStream.Size;
+  aStream.ReadBuffer(buffer, size);
+  writeResult := WriteFile(Pipe, buffer, size, resultSize, nil);
+  if not writeResult then
+    raise ECannotWritePipe.Create('Can not write pipe: ' + IntToStr(Pipe));
 end;
 
 end.

@@ -23,7 +23,11 @@ type
     function CommandsToText: string;
     function ToText: string;
     destructor Destroy; override;
+
+    class function TwosComponent(const aSum: byte): byte;
   end;
+
+  EM2100Message = class(Exception);
 
 implementation
 
@@ -45,7 +49,7 @@ end;
 function TM2100Message.ToText: string;
 begin
   result := 'M2100-Msg {';
-  result := result + '$TX=' + IntToHex(stx, 2);
+  result := result + 'STX=$' + IntToHex(stx, 2);
   result := result + ' |' + IntToStr(Length);
   if IsDoubleLength then
     result := result + '/'
@@ -53,6 +57,7 @@ begin
     result := result + '|';
   if Commands.Count > 0 then
     result := result + ' ' + CommandsToText + ' ';
+  result := result + '+$' + IntToHex(CheckSum, 2);
   result := result + '}';
 end;
 
@@ -60,6 +65,15 @@ destructor TM2100Message.Destroy;
 begin
   Commands.Free;
   inherited Destroy;
+end;
+
+class function TM2100Message.TwosComponent(const aSum: byte): byte;
+var
+  x: integer;
+begin
+  x := aSum;
+  x := 256 - x;
+  result := x and $00FF; 
 end;
 
 end.

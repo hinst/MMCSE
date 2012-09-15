@@ -21,9 +21,11 @@ type
 
   { TM2100MessageDecoder }
 
+  EM2100MessageDecoder = class(EM2100Message);
+
   TM2100MessageDecoder = class
   public
-      // does not owns the aStream
+      // instance does not owns the aStream
     constructor Create(const aStream: TStream);
   private
     fLog: TCustomLog;
@@ -38,6 +40,8 @@ type
     function ReadSubCommand(const aId: byte): TM2100SubCommand;
     procedure ReadCheckSum;
     {$ENDREGION}
+    function EvaluateCheckSum: byte;
+    procedure AssertCheckSumCorrect;
     procedure LogDecoding(const aText: string);
     procedure ReplaceLog(const aLog: TCustomLog);
   public
@@ -51,26 +55,17 @@ type
     destructor Destroy; override;
   end;
 
-  EM2100Message = class(Exception);
+  EM2100MessageDecoderCheckSumIncorrect = class(EM2100MessageDecoder)
+  public
+    constructor Create(const aDeclared, aActual: byte);
+  private
+    fActual, fDeclared: byte;
+  public
+    property Actual: byte read fActual;
+    property Declared: byte read fDeclared;
+  end;
 
 implementation
-
-function M2100ReadLength(const aStream: TStream; out aDoubleLength: boolean): integer;
-var
-  lengthA, lengthB: byte;
-begin
-  lengthA := 0;
-  lengthB := 0;
-  aStream.ReadBuffer(lengthA, 1);
-  aDoubleLength := (lengthA and $80) = 0;
-  if aDoubleLength then
-  begin
-    aStream.ReadBuffer(lengthB, 1);
-    result := lengthB + integer(lengthA) shl 8;
-  end
-  else
-    result := lengthA xor $80;
-end;
 
 constructor TM2100MessageDecoder.Create(const aStream: TStream);
 begin
@@ -81,8 +76,20 @@ begin
 end;
 
 function TM2100MessageDecoder.ReadLength(out aDoubleLength: boolean): integer;
+var
+  lengthA, lengthB: byte;
 begin
-  result := M2100ReadLength(Stream, aDoubleLength);
+  lengthA := 0;
+  lengthB := 0;
+  Stream.ReadBuffer(lengthA, 1);
+  aDoubleLength := (lengthA and $80) = 0;
+  if aDoubleLength then
+  begin
+    Stream.ReadBuffer(lengthB, 1);
+    result := lengthB + integer(lengthA) shl 8;
+  end
+  else
+    result := lengthA xor $80;
 end;
 
 procedure TM2100MessageDecoder.Decode;
@@ -91,6 +98,7 @@ begin
   ReadMessageLength;
   ReadCommands;
   ReadCheckSum;
+  AssertCheckSumCorrect;
 end;
 
 procedure TM2100MessageDecoder.ReadSTX;
@@ -167,6 +175,31 @@ begin
   LogDecoding('Checksum is $' + IntToHex(Msg.CheckSum, 2));
 end;
 
+function TM2100MessageDecoder.EvaluateCheckSum: byte;
+var
+  currentByte: byte;
+  sum: integer;
+begin
+  sum := 0;
+  Stream.Seek(1, soBeginning);
+  while Stream.Position < Stream.Size - 1 do
+  begin
+    Stream.ReadBuffer(currentByte, 1);
+    sum := (sum + currentByte) and $00FF;
+  end;
+  result := TM2100Message.TwosComponent(sum);
+end;
+
+procedure TM2100MessageDecoder.AssertCheckSumCorrect;
+var
+  declared, actual: byte;
+begin
+  declared := Msg.CheckSum;
+  actual := EvaluateCheckSum;
+  if declared <> actual then
+    raise EM2100MessageDecoderCheckSumIncorrect.Create(declared, actual);
+end;
+
 procedure TM2100MessageDecoder.LogDecoding(const aText: string);
 var
   text: string;
@@ -194,6 +227,14 @@ destructor TM2100MessageDecoder.Destroy;
 begin
   FreeAndNil(fLog);
   inherited;
+end;
+
+constructor EM2100MessageDecoderCheckSumIncorrect.Create(const aDeclared, aActual: byte);
+begin
+  inherited Create('');
+  fActual := aActual;
+  fDeclared := aDeclared;
+  Message := 'Actual: $' + IntToHex(Actual, 2) + ' = ' + IntToHex(Declared, 2) + '$ :declared';
 end;
 
 end.

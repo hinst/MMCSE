@@ -23,7 +23,7 @@ uses
   M2100Command,
   M2100Message,
   M2100Switcher,
-  M2100MessageEncoder in 'M2100MessageEncoder.pas';
+  M2100MessageEncoder;
 
 type
   TApplication = class
@@ -75,6 +75,7 @@ begin
   fSwitcher := TM2100Switcher.Create;
   fPipe := T2MPipe.Create('\\.\pipe\nVisionMCS');
   Switcher.ReceiveMessage := Pipe.RequestReceiveMessage;
+  Switcher.SendResponse := Pipe.SendResponse;
   Switcher.Log := TLog.Create(LogManager, 'Switcher');
 end;
 
@@ -101,9 +102,9 @@ end;
 
 procedure TApplication.Run;
 begin
-  Log.Write('Now running application...');
+  Log.Write('Now running application... [-->]');
   SafeRun;
-  Log.Write('Now ending application...');
+  Log.Write('Now ending application... [ . ]');
 end;
 
 destructor TApplication.Destroy;

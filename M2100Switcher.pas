@@ -1,5 +1,7 @@
 unit M2100Switcher;
 
+{$DEFINE LOG_STREAM_BEFORE_SENGING}
+
 interface
 
 uses
@@ -73,6 +75,7 @@ type
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
     function ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
     procedure SendMessage(const aMessage: TM2100Message);
+    procedure SafeSendMessage(const aMessage: TStream);
     procedure Destruction;
   public
     property Log: TCustomLog read fLog write ReplaceLog;
@@ -161,7 +164,7 @@ begin
   repeat
     if @ReceiveMessage <> nil then
     begin
-      Log.Write('(checking data)');
+      // Log.Write('(checking data)');
       incomingStream := ReceiveMessage;
       if Assigned(incomingStream) then
       begin
@@ -208,10 +211,12 @@ begin
   StreamRewind(aMessage);
   m := SafeDecodeMessage(aMessage);
   answerM := SafeProcessMessage(m);
+  m.Free;
   if answerM = nil then
     Log.Write('No responce for this message')
   else
     SendMessage(answerM);
+  answerM.Free;
 end;
 
 function TM2100Switcher.SafeDecodeMessage(const aMessage: TStream): TM2100Message;
@@ -251,11 +256,44 @@ var
   stream: TStream;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  {
   Log.Write('Now encoding message...' + sLineBreak
     + '  ' + aMessage.ToText);
+  }
   stream := TM2100MessageEncoder.Encode(aMessage);
+
   Log.Write('Now sending message...' + sLineBreak
     + '  ' + aMessage.ToText);
+
+  {$IFDEF LOG_STREAM_BEFORE_SENGING}
+  StreamRewind(stream);
+  Log.Write('Now sending message ' + StreamToText(stream));
+  {$ENDIF}
+  SafeSendMessage(stream);
+  stream.Free;
+end;
+
+procedure TM2100Switcher.SafeSendMessage(const aMessage: TStream);
+begin
+  try
+    AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+    AssertAssigned(@SendResponse, 'SendResponse', TVariableType.Prop);
+    StreamRewind(aMessage);
+    SendResponse(aMessage);
+  except
+    on e: Exception do
+    begin
+      Log.Write('ERROR', 'Could not send response. Exception occured.');
+      Log.Write('ERROR', GetExceptionInfo(e));
+      try
+        StreamRewind(aMessage);
+        Log.Write('ERROR', 'Response is: ' +StreamToText(aMessage));
+      except
+        Log.Write('ERROR', 'Response is: can not output response');
+      end;
+      AssertSuppressable(e);
+    end;
+  end;
 end;
 
 function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
@@ -272,13 +310,13 @@ var
   answerCommand: TM2100Command;
 begin
   result := TM2100Message.Create;
+  result.STX := aMessage.STX;
   for i := 0 to aMessage.Commands.Count - 1 do
   begin
     command := aMessage.Commands[i] as TM2100Command;
     answerCommand := ProcessCommand(command);
     if answerCommand <> nil then
     begin
-      Log.Write('Got result: ' + answerCommand.ToText);
       result.Commands.Add(answerCommand);
     end;
   end;
@@ -299,7 +337,6 @@ begin
     answerSubCommand := ProcessSubCommand(subCommand);
     if answerSubCommand <> nil then
     begin
-      Log.Write('Got subCommand answer: ' + answerSubCommand.ToText);
       if result = nil then
       begin
         result := TM2100Command.Create;

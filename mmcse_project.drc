@@ -12,8 +12,9 @@
 #define RTLConsts_SMemoryStreamError 65425
 #define RTLConsts_SReadError 65426
 #define RTLConsts_SSeekNotImplemented 65427
-#define RTLConsts_SThreadCreateError 65428
-#define RTLConsts_SThreadError 65429
+#define RTLConsts_SWriteError 65428
+#define RTLConsts_SThreadCreateError 65429
+#define RTLConsts_SThreadError 65430
 #define SysConst_SShortDayNameTue 65440
 #define SysConst_SShortDayNameWed 65441
 #define SysConst_SShortDayNameThu 65442
@@ -116,6 +117,7 @@ BEGIN
 	RTLConsts_SMemoryStreamError,	"Out of memory while expanding memory stream"
 	RTLConsts_SReadError,	"Stream read error"
 	RTLConsts_SSeekNotImplemented,	"%s.Seek not implemented"
+	RTLConsts_SWriteError,	"Stream write error"
 	RTLConsts_SThreadCreateError,	"Thread creation error: %s"
 	RTLConsts_SThreadError,	"Thread Error: %s (%d)"
 	SysConst_SShortDayNameTue,	"Tue"
