@@ -10,21 +10,20 @@ uses
   madListModules,
   SysUtils,
   Classes,
-
   CustomLogManager,
   PlainLogManager,
   CustomLogEntity,
   DefaultLogEntity,
   CustomLogWriter,
   ConsoleLogWriter,
-  
   M2Pipe,
   M2100MessageDecoder,
   M2100PipeThreader,
   mmcse_common,
   M2100Command,
   M2100Message,
-  M2100Switcher;
+  M2100Switcher,
+  M2100MessageEncoder in 'M2100MessageEncoder.pas';
 
 type
   TApplication = class

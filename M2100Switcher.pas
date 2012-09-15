@@ -19,7 +19,8 @@ uses
 
   M2100Message,
   M2100Command,
-  M2100MessageDecoder;
+  M2100MessageDecoder,
+  M2100MessageEncoder;
 
 type
   TM2100Keyer = class
@@ -54,19 +55,24 @@ type
     fSendResponse: TSendResponceMethod;
     fThread: TCustomThread;
     fThreadWaitInterval: integer;
+    fAutomationStatus: boolean;
     procedure ReplaceLog(const aLog: TCustomLog);
     procedure Construction;
+    procedure AssignDefaults;
     procedure InitializeKeyers;
     function GetKeyersStatusAsByte: byte;
-    function GenerateResponse(const aMessage: TStream): TStream;
     procedure ExecuteSendReceiveThread(const aThread: TCustomThread);
     procedure OnSendRecieveThreadException(const aThread: TCustomThread;
       const aException: Exception);
+    function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
+    function DecodeMessage(const aMessage: TStream): TM2100Message;
     procedure ProcessMessage(const aMessage: TStream); overload;
     function ProcessMessage(const aMessage: TM2100Message): TM2100Message; overload;
+    function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
-    function DecodeMessage(const aMessage: TStream): TM2100Message;
+    function ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
+    procedure SendMessage(const aMessage: TM2100Message);
     procedure Destruction;
   public
     property Log: TCustomLog read fLog write ReplaceLog;
@@ -75,6 +81,7 @@ type
     property SendResponse: TSendResponceMethod read fSendResponse write fSendResponse;
     property Thread: TCustomThread read fThread;
     property ThreadWaitInterval: integer read fThreadWaitInterval write fThreadWaitInterval;
+    property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     destructor Destroy; override;
   end;
@@ -111,6 +118,7 @@ begin
   Thread.OnExecute := ExecuteSendReceiveThread;
   Thread.OnException :=  OnSendRecieveThreadException;
   fThreadWaitInterval := DefaultThreadWaitInterval;
+  AssignDefaults;
 end;
 
 procedure TM2100Switcher.InitializeKeyers;
@@ -127,6 +135,11 @@ begin
   end;
 end;
 
+procedure TM2100Switcher.AssignDefaults;
+begin
+  AutomationStatus := true;
+end;
+
 function TM2100Switcher.GetKeyersStatusAsByte: byte;
 begin
   result := 0;
@@ -140,18 +153,15 @@ begin
     result := result or (1 shl 3);
 end;
 
-function TM2100Switcher.GenerateResponse(const aMessage: TStream): TStream;
-begin
-end;
-
 procedure TM2100Switcher.ExecuteSendReceiveThread(const aThread: TCustomThread);
 var
   incomingStream: TStream;
 begin
-  Log.Write('TM2100 Switcher thread starts.');
+  Log.Write('TM2100 Switcher thread starts... [>]');
   repeat
     if @ReceiveMessage <> nil then
     begin
+      Log.Write('(checking data)');
       incomingStream := ReceiveMessage;
       if Assigned(incomingStream) then
       begin
@@ -161,7 +171,7 @@ begin
     end;
     Sleep(ThreadWaitInterval);
   until aThread.Stop;
-  Log.Write('TM2100 Switcher thread stops.');
+  Log.Write('TM2100 Switcher thread end. [#]');
 end;
 
 procedure TM2100Switcher.OnSendRecieveThreadException(const aThread: TCustomThread;
@@ -169,48 +179,6 @@ procedure TM2100Switcher.OnSendRecieveThreadException(const aThread: TCustomThre
 begin
   Log.Write('ERROR', 'An exception occured while executing thread');
   Log.Write(GetExceptionInfo(aException));
-end;
-
-procedure TM2100Switcher.ProcessMessage(const aMessage: TStream);
-var
-  response: TStream;
-  m: TM2100Message;
-begin
-  StreamRewind(aMessage);
-  Log.Write('Now processing message: ' + StreamToText(aMessage));
-  StreamRewind(aMessage);
-  m := DecodeMessage(aMessage);
-  if m = nil then
-    exit; // message is not decoded and error message should be already logged
-  ProcessMessage(m);
-end;
-
-function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
-begin
-  Log.Write('Now processing message:..' + sLineBreak + ' ' + aMessage.ToText);
-  result := ProcessCommands(aMessage);
-end;
-
-function TM2100Switcher.ProcessCommands(const aMessage: TM2100Message): TM2100Message;
-var
-  i: integer;
-  command: TM2100Command;
-  answerCommand: TM2100Command;
-begin
-  result := TM2100Message.Create;
-  for i := 0 to aMessage.Commands.Count - 1 do
-  begin
-    command := aMessage.Commands[i] as TM2100Command;
-    answerCommand := ProcessCommand(command);
-    if answerCommand = nil then
-      continue; // this command does not requires an answer
-    result.Commands.Add(answerCommand);
-  end;
-end;
-
-function TM2100Switcher.ProcessCommand(const aCommand: TM2100Command): TM2100Command;
-begin
-  Log.Write('Now processing command:..' + sLineBreak + ' ' + aCommand.ToText);
 end;
 
 function TM2100Switcher.DecodeMessage(const aMessage: TStream): TM2100Message;
@@ -228,11 +196,146 @@ begin
   end;
 end;
 
+procedure TM2100Switcher.ProcessMessage(const aMessage: TStream);
+var
+  response: TStream;
+  m: TM2100Message;
+  answerM: TM2100Message;
+begin
+  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  StreamRewind(aMessage);
+  Log.Write('Now processing message: ' + StreamToText(aMessage));
+  StreamRewind(aMessage);
+  m := SafeDecodeMessage(aMessage);
+  answerM := SafeProcessMessage(m);
+  if answerM = nil then
+    Log.Write('No responce for this message')
+  else
+    SendMessage(answerM);
+end;
+
+function TM2100Switcher.SafeDecodeMessage(const aMessage: TStream): TM2100Message;
+begin
+  try
+    result := DecodeMessage(aMessage);
+  except
+    on e: Exception do
+    begin
+      result := nil;
+      Log.Write('ERROR', 'Exception while decoding message');
+      Log.Write('ERROR', GetExceptionInfo(e));
+      AssertSuppressable(e);
+    end;
+  end;
+end;
+
+function TM2100Switcher.SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
+begin
+  try
+    result := ProcessMessage(aMessage);
+  except
+    on e: Exception do
+    begin
+      result := nil;
+      Log.Write('ERROR', 'Exception while processing message');
+      Log.Write('ERROR', GetExceptionInfo(e));
+      Log.Write('ERROR', 'Message which caused the exception: ' + sLineBreak
+        + ' ' + aMessage.ToText);
+      AssertSuppressable(e);
+    end;
+  end;
+end;
+
+procedure TM2100Switcher.SendMessage(const aMessage: TM2100Message);
+var
+  stream: TStream;
+begin
+  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  Log.Write('Now encoding message...' + sLineBreak
+    + '  ' + aMessage.ToText);
+  stream := TM2100MessageEncoder.Encode(aMessage);
+  Log.Write('Now sending message...' + sLineBreak
+    + '  ' + aMessage.ToText);
+end;
+
+function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
+begin
+  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  Log.Write('Now processing message:..' + sLineBreak + ' ' + aMessage.ToText);
+  result := ProcessCommands(aMessage);
+end;
+
+function TM2100Switcher.ProcessCommands(const aMessage: TM2100Message): TM2100Message;
+var
+  i: integer;
+  command: TM2100Command;
+  answerCommand: TM2100Command;
+begin
+  result := TM2100Message.Create;
+  for i := 0 to aMessage.Commands.Count - 1 do
+  begin
+    command := aMessage.Commands[i] as TM2100Command;
+    answerCommand := ProcessCommand(command);
+    if answerCommand <> nil then
+    begin
+      Log.Write('Got result: ' + answerCommand.ToText);
+      result.Commands.Add(answerCommand);
+    end;
+  end;
+end;
+
+function TM2100Switcher.ProcessCommand(const aCommand: TM2100Command): TM2100Command;
+var
+  i: integer;
+  subCommand: TM2100SubCommand;
+  answerSubCommand: TM2100SubCommand;
+begin
+  AssertAssigned(aCommand, 'aCommand', TVariableType.Argument);
+  Log.Write('Now processing command:..' + sLineBreak + ' ' + aCommand.ToText);
+  result := nil;
+  for i := 0 to aCommand.SubCommands.Count - 1 do
+  begin
+    subCommand := aCommand.SubCommands[i] as TM2100SubCommand;
+    answerSubCommand := ProcessSubCommand(subCommand);
+    if answerSubCommand <> nil then
+    begin
+      Log.Write('Got subCommand answer: ' + answerSubCommand.ToText);
+      if result = nil then
+      begin
+        result := TM2100Command.Create;
+        if aCommand.CommandClass = M2100MessageCommandClass_QUERY then
+          result.CommandClass := M2100MessageCommandClass_STATUS;
+      end;
+      result.SubCommands.Add(answerSubCommand);
+    end;
+  end;
+  if result = nil then
+  begin
+    if aCommand.CommandClass = M2100MessageCommandClass_CMD then
+    begin
+      result := TM2100Command.Create;
+      result.CommandClass := M2100MessageCommandClass_ACKNOWLEDGED;
+    end;
+  end;
+end;
+
+function TM2100Switcher.ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
+begin
+  Log.Write('Now processing subcommand ' + aSubCommand.ToText);
+  result := nil;
+  if aSubCommand is TM2100SubCommandKeyStat then
+    result := TM2100SubCommandKeyStatAnswer.Create(KeyersStatusAsByte);
+  if aSubCommand is TM2100SubCommandAutoStat then
+    result := TM2100SubCommandAutoStatAnswer.Create(true);
+end;
+
 procedure TM2100Switcher.Destruction;
 begin
   if not Thread.Suspended then
     Thread.WaitFor;
+  FreeAndNil(fThread);
   FreeAndNil(fKeyers);
+  FreeAndNil(fLog);
 end;
 
 destructor TM2100Switcher.Destroy;

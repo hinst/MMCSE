@@ -14,10 +14,12 @@ type
   public
     constructor Create(const aName: string);
   protected
+    fClientConnected: boolean;
     class function GetPipeMode: DWORD; inline;
     function IsDataAvailable: boolean;
     procedure Initialize;
   public
+    property ClientConnected: boolean read fClientConnected;
     property PipeMode: DWORD read GetPipeMode;
     property DataAvailable: boolean read IsDataAvailable;
     procedure WaitForClient;
@@ -49,7 +51,7 @@ var
   totalAvailable: DWORD;
   messageAvailable: DWORD;
 begin
-  if not PipeOpened then
+  if (not PipeOpened) or (not ClientConnected) then
   begin
     result := false;
     exit;
@@ -81,6 +83,7 @@ begin
   waitResult := ConnectNamedPipe(Pipe, nil);
   if not waitResult then
     raise EConnectionFailure.Create('');
+  fClientConnected := true;
 end;
 
 function T2MPipe.Read: TMemoryStream;

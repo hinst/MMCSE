@@ -10,7 +10,6 @@ uses
   Contnrs,
 
   CustomLogEntity,
-  DefaultLogEntity,
   EmptyLogEntity,
 
   UStreamUtilities,
@@ -24,7 +23,7 @@ type
 
   TM2100MessageDecoder = class
   public
-      // does not owns the stream
+      // does not owns the aStream
     constructor Create(const aStream: TStream);
   private
     fLog: TCustomLog;
@@ -42,11 +41,14 @@ type
     procedure LogDecoding(const aText: string);
     procedure ReplaceLog(const aLog: TCustomLog);
   public
+      // owns the Log
     property Log: TCustomLog read fLog write ReplaceLog;
     property Stream: TStream read fStream;
+      // does not owns the Msg
     property Msg: TM2100Message read fMessage;
     procedure Decode; overload;
     class function Decode(const aStream: TStream): TM2100Message; overload;
+    destructor Destroy; override;
   end;
 
   EM2100Message = class(Exception);
@@ -179,18 +181,19 @@ class function TM2100MessageDecoder.Decode(const aStream: TStream): TM2100Messag
 var
   decoder: TM2100MessageDecoder;
 begin
-  result := nil;
-  decoder := nil;
+  decoder := TM2100MessageDecoder.Create(aStream);
   try
-    decoder := TM2100MessageDecoder.Create(aStream);
-    decoder.Log := TLog.Create(GlobalLogManager, 'Decoder');
     decoder.Decode;
     result := decoder.Msg;
+  finally
     decoder.Free;
-  except
-    decoder.Log.Write('Exception while decoding...');
-    decoder.Log := nil;
   end;
+end;
+
+destructor TM2100MessageDecoder.Destroy;
+begin
+  FreeAndNil(fLog);
+  inherited;
 end;
 
 end.

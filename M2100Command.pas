@@ -19,6 +19,7 @@ type
     class function KEY_STAT: byte;
     class function AUTO_STAT: byte;
     procedure LoadFromStream(const aStream: TStream); virtual; abstract;
+    procedure SaveToStream(const aStream: TStream); virtual; abstract;
     function IdToText: string;
     function IdToTextFull: string;
     function ToText: string; virtual;
@@ -43,9 +44,29 @@ type
     procedure LoadFromStream(const aStream: TStream); override;
   end;
 
+  TM2100SubCommandKeyStatAnswer = class(TM2100SubCommand)
+  public
+    constructor Create(const aStatus: byte);
+  private
+    fStatus: byte;
+  public
+    property Status: byte read fStatus;
+    procedure SaveToStream(const aStream: TStream); override;
+  end;
+
   TM2100SubCommandAutoStat = class(TM2100SubCommand)
   public
     procedure LoadFromStream(const aStream: TStream); override;
+  end;
+
+  TM2100SubCommandAutoStatAnswer = class(TM2100SubCommand)
+  public
+    constructor Create(const aStatus: boolean);
+  private
+    fStatus: boolean;
+  public
+    property Status: boolean read fStatus;
+    procedure SaveToStream(const aStream: TStream); override;
   end;
 
 const
@@ -53,6 +74,7 @@ const
   M2100MessageCommandClass_QUERY = $02;
   M2100MessageCommandClass_STATUS = $03;
   M2100MessageCommandClass_SUBSCRIPTION = $04;
+  M2100MessageCommandClass_ACKNOWLEDGED = $04;
 
 implementation
 
@@ -150,10 +172,39 @@ end;
 
 procedure TM2100SubCommandKeyStat.LoadFromStream(const aStream: TStream);
 begin
+  // this command has no parameters
+end;
+
+constructor TM2100SubCommandKeyStatAnswer.Create(const aStatus: byte);
+begin
+  inherited Create(KEY_STAT);
+  fStatus := aStatus;
+end;
+
+procedure TM2100SubCommandKeyStatAnswer.SaveToStream(const aStream: TStream);
+begin
+  aStream.Write(fStatus, 1);
 end;
 
 procedure TM2100SubCommandAutoStat.LoadFromStream(const aStream: TStream);
 begin
+end;
+
+constructor TM2100SubCommandAutoStatAnswer.Create(const aStatus: boolean);
+begin
+  inherited Create(AUTO_STAT);
+  fStatus := aStatus;
+end;
+
+procedure TM2100SubCommandAutoStatAnswer.SaveToStream(const aStream: TStream);
+var
+  statusByte: byte;
+begin
+  if Status then
+    statusByte := $01
+  else
+    statusByte := $00;
+  aStream.Write(statusByte, 1);
 end;
 
 end.
