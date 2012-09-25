@@ -27,6 +27,7 @@ type
     function IsDoubleLength(const aLength: integer): boolean;
     procedure WriteLength(const aLength: integer);
 
+    function EncodeAsAcknowledged: boolean;
     procedure WriteSTX;
     procedure WriteMessageLength;
     procedure WriteCommands;
@@ -46,6 +47,7 @@ type
     destructor Destroy; override;
   end;
 
+  
 implementation
 
 constructor TM2100MessageEncoder.Create(const aMessage: TM2100Message);
@@ -201,6 +203,8 @@ end;
 
 procedure TM2100MessageEncoder.Encode;
 begin
+  if EncodeAsAcknowledged then
+    exit;    
   EstimateMessageLength;
   WriteSTX;
   WriteMessageLength;
@@ -220,6 +224,12 @@ begin
   finally
     encoder.Free;
   end;
+end;
+
+function TM2100MessageEncoder.EncodeAsAcknowledged: boolean;
+begin
+  result := Msg.IsAcknowledged;
+  Stream.WriteBuffer(M2100MessageCommandClass_ACKNOWLEDGED, 1);
 end;
 
 

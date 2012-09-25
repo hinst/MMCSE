@@ -1,6 +1,18 @@
 unit M2100Switcher;
 
-{$DEFINE LOG_STREAM_BEFORE_SENGING}
+{$DEFINE LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
+{$DEFINE LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
+{$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
+{$DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
+
+{$DEFINE LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
+  //< affects
+  // LOG_MESSAGE_CONTENT_BEFORE_PROCESSING
+  // and
+  // LOG_MESSAGE_CONTENT_BEFORE_SENDING
+  
+{ $DEFINE LOG_COMMAND_ON_COMMAND_PROCESSING}
+{ $DEFINE LOG_SUBCOMMAND_ON_SUBCOMMAND_PROCESSING}
 
 interface
 
@@ -63,6 +75,7 @@ type
     procedure AssignDefaults;
     procedure InitializeKeyers;
     function GetKeyersStatusAsByte: byte;
+    function GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
     procedure ExecuteSendReceiveThread(const aThread: TCustomThread);
     procedure OnSendRecieveThreadException(const aThread: TCustomThread;
       const aException: Exception);
@@ -86,6 +99,7 @@ type
     property ThreadWaitInterval: integer read fThreadWaitInterval write fThreadWaitInterval;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
+    property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
     destructor Destroy; override;
   end;
 
@@ -156,6 +170,32 @@ begin
     result := result or (1 shl 3);
 end;
 
+function TM2100Switcher.GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
+
+  function IsAutoStatPolling: boolean;
+  var
+    command: TM2100Command;
+  begin
+    result := aMessage.Commands.Count = 1;
+    if not result  then
+      exit;
+    command := (aMessage.Commands[0] as TM2100Command);
+    result := result and (command.SubCommands.Count = 1);
+    if not result then
+      exit;
+    result := result
+      and (command.SubCommands[0] is TM2100SubCommandAutoStat)
+      or (command.SubCommands[0] is TM2100SubCommandAutoStatAnswer);
+  end;
+  
+begin
+  result := false
+  {$IFDEF LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
+    or IsAutoStatPolling
+  {$ENDIF}
+  ;
+end;
+
 procedure TM2100Switcher.ExecuteSendReceiveThread(const aThread: TCustomThread);
 var
   incomingStream: TStream;
@@ -164,7 +204,6 @@ begin
   repeat
     if @ReceiveMessage <> nil then
     begin
-      // Log.Write('(checking data)');
       incomingStream := ReceiveMessage;
       if Assigned(incomingStream) then
       begin
@@ -206,8 +245,10 @@ var
   answerM: TM2100Message;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  {$IFDEF LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
   StreamRewind(aMessage);
-  Log.Write('Now processing message: ' + StreamToText(aMessage));
+  Log.Write('Now processing message stream: ' + StreamToText(aMessage) + '...');
+  {$ENDIF}
   StreamRewind(aMessage);
   m := SafeDecodeMessage(aMessage);
   answerM := SafeProcessMessage(m);
@@ -236,6 +277,11 @@ end;
 
 function TM2100Switcher.SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
 begin
+  if not Assigned(aMessage) then
+  begin
+    result := nil;
+    Log.Write('ERROR', 'Can not process message: aMessage argument is unassigned');
+  end;
   try
     result := ProcessMessage(aMessage);
   except
@@ -244,8 +290,13 @@ begin
       result := nil;
       Log.Write('ERROR', 'Exception while processing message');
       Log.Write('ERROR', GetExceptionInfo(e));
-      Log.Write('ERROR', 'Message which caused the exception: ' + sLineBreak
-        + ' ' + aMessage.ToText);
+      if Assigned(aMessage) then
+        try
+          Log.Write('ERROR', 'Message which caused the exception: ' + sLineBreak
+            + ' ' + aMessage.ToText);
+        except
+          Log.Write('ERROR', 'Message which caused exception can not be converted to text');
+        end;
       AssertSuppressable(e);
     end;
   end;
@@ -256,16 +307,12 @@ var
   stream: TStream;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  {
-  Log.Write('Now encoding message...' + sLineBreak
-    + '  ' + aMessage.ToText);
-  }
   stream := TM2100MessageEncoder.Encode(aMessage);
-
-  Log.Write('Now sending message...' + sLineBreak
-    + '  ' + aMessage.ToText);
-
-  {$IFDEF LOG_STREAM_BEFORE_SENGING}
+  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING}
+  if not LoggingSuppressed[aMessage] then
+    Log.Write('Now sending message...' + sLineBreak + '  ' + aMessage.ToText);
+  {$ENDIF}
+  {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENGING}
   StreamRewind(stream);
   Log.Write('Now sending message ' + StreamToText(stream));
   {$ENDIF}
@@ -299,7 +346,15 @@ end;
 function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  Log.Write('Now processing message:..' + sLineBreak + ' ' + aMessage.ToText);
+  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
+  if not LoggingSuppressed[aMessage] then
+    Log.Write('Now processing message:..' + sLineBreak + '  ' + aMessage.ToText);
+  {$ENDIF}
+  if aMessage.IsAcknowledged then
+  begin
+    result := nil;
+    exit;
+  end;
   result := ProcessCommands(aMessage);
 end;
 
@@ -316,9 +371,7 @@ begin
     command := aMessage.Commands[i] as TM2100Command;
     answerCommand := ProcessCommand(command);
     if answerCommand <> nil then
-    begin
       result.Commands.Add(answerCommand);
-    end;
   end;
 end;
 
@@ -329,7 +382,9 @@ var
   answerSubCommand: TM2100SubCommand;
 begin
   AssertAssigned(aCommand, 'aCommand', TVariableType.Argument);
-  Log.Write('Now processing command:..' + sLineBreak + ' ' + aCommand.ToText);
+  {$IFDEF LOG_COMMAND_ON_COMMAND_PROCESSING}
+    Log.Write('Now processing command:..' + sLineBreak + ' ' + aCommand.ToText);
+  {$ENDIF}
   result := nil;
   for i := 0 to aCommand.SubCommands.Count - 1 do
   begin
@@ -358,7 +413,9 @@ end;
 
 function TM2100Switcher.ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
 begin
+  {$IFDEF LOG_SUBCOMMAND_ON_SUBCOMMAND_PROCESSING}
   Log.Write('Now processing subcommand ' + aSubCommand.ToText);
+  {$ENDIF}
   result := nil;
   if aSubCommand is TM2100SubCommandKeyStat then
     result := TM2100SubCommandKeyStatAnswer.Create(KeyersStatusAsByte);

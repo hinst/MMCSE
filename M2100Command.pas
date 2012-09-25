@@ -74,7 +74,7 @@ const
   M2100MessageCommandClass_QUERY = $02;
   M2100MessageCommandClass_STATUS = $03;
   M2100MessageCommandClass_SUBSCRIPTION = $04;
-  M2100MessageCommandClass_ACKNOWLEDGED = $04;
+  M2100MessageCommandClass_ACKNOWLEDGED: byte = $04;
 
 implementation
 
@@ -138,7 +138,7 @@ begin
   if aCommandClass = M2100MessageCommandClass_STATUS then
     result := 'STATUS';
   if aCommandClass = M2100MessageCommandClass_SUBSCRIPTION then
-    result := 'SUBSCRIPTION';  
+    result := 'SUBSCRIPTION|ACK';
 end;
 
 function TM2100Command.ToText: string;

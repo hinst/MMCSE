@@ -95,6 +95,8 @@ end;
 procedure TM2100MessageDecoder.Decode;
 begin
   ReadSTX;
+  if Msg.IsAcknowledged then
+    exit;
   ReadMessageLength;
   ReadCommands;
   ReadCheckSum;

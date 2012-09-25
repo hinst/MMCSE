@@ -23,6 +23,7 @@ type
     function CommandsToText: string;
     function ToText: string;
     destructor Destroy; override;
+    function IsAcknowledged: boolean;
 
     class function TwosComponent(const aSum: byte): byte;
   end;
@@ -65,6 +66,29 @@ destructor TM2100Message.Destroy;
 begin
   Commands.Free;
   inherited Destroy;
+end;
+
+function TM2100Message.IsAcknowledged: boolean;
+var
+  i: integer;
+  command: TM2100Command;
+begin
+  if STX = M2100MessageCommandClass_ACKNOWLEDGED then
+  begin
+    result := true;
+    exit;
+  end;
+  if Commands.Count = 0 then
+  begin
+    result := false;
+    exit;
+  end;
+  result := true;
+  for i := 0 to Commands.Count - 1 do
+  begin
+    command := Commands[i] as TM2100Command;
+    result := result and (command.CommandClass = M2100MessageCommandClass_ACKNOWLEDGED);
+  end;  
 end;
 
 class function TM2100Message.TwosComponent(const aSum: byte): byte;
