@@ -50,22 +50,23 @@ end;
 function TM2100Message.ToText: string;
 begin
   result := 'M2100-Msg {';
-  result := result + 'STX=$' + IntToHex(stx, 2);
-  result := result + ' |' + IntToStr(Length);
-  if IsDoubleLength then
-    result := result + '/'
+  if IsAcknowledged then
+  begin
+    result := result + 'Acknowledged';
+  end
   else
-    result := result + '|';
-  if Commands.Count > 0 then
-    result := result + ' ' + CommandsToText + ' ';
-  result := result + '+$' + IntToHex(CheckSum, 2);
+  begin
+    result := result + 'STX=$' + IntToHex(stx, 2);
+    result := result + ' |' + IntToStr(Length);
+    if IsDoubleLength then
+      result := result + '/'
+    else
+      result := result + '|';
+    if Commands.Count > 0 then
+      result := result + ' ' + CommandsToText + ' ';
+    result := result + '+$' + IntToHex(CheckSum, 2);
+  end;
   result := result + '}';
-end;
-
-destructor TM2100Message.Destroy;
-begin
-  Commands.Free;
-  inherited Destroy;
 end;
 
 function TM2100Message.IsAcknowledged: boolean;
@@ -98,6 +99,12 @@ begin
   x := aSum;
   x := 256 - x;
   result := x and $00FF; 
+end;
+
+destructor TM2100Message.Destroy;
+begin
+  Commands.Free;
+  inherited Destroy;
 end;
 
 end.

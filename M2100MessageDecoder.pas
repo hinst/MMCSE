@@ -37,7 +37,9 @@ type
     procedure ReadMessageLength;
     procedure ReadCommands;
     procedure ReadSubCommands(const aCommand: TM2100Command);
-    function ReadSubCommand(const aId: byte): TM2100SubCommand;
+      // aLeft: how much data left in the current command
+    function ReadSubCommand(const aId: byte; const aLeft: integer): TM2100SubCommand; overload;
+    procedure ReadSubCommand(const aCommand: TM2100SubCommand; const aLeft: integer); overload;
     procedure ReadCheckSum;
     {$ENDREGION}
     function EvaluateCheckSum: byte;
@@ -149,25 +151,32 @@ begin
   begin
     subCommandId := 0;
     Stream.ReadBuffer(subCommandId, 1);
-    subCommand := ReadSubCommand(subCommandId);
+    subCommand := ReadSubCommand(subCommandId,
+      aCommand.Length - (Stream.Position - initialPosition));
     aCommand.SubCommands.Add(subCommand);
     LogDecoding('Subcommand decoded.');
   end;
+end;
+
+function TM2100MessageDecoder.ReadSubCommand(const aId: byte; const aLeft: integer)
+  : TM2100SubCommand;
+begin
+  result := TM2100SubCommand.Construct(aId);
+  ReadSubCommand(result, aLeft);
+end;
+
+procedure TM2100MessageDecoder.ReadSubCommand(const aCommand: TM2100SubCommand;
+  const aLeft: integer);
+begin
+  if aCommand is TM2100SubCommandUnknown then
+    (aCommand as TM2100SubCommandUnknown).UnknownData.Size := aLeft;
+  aCommand.LoadFromStream(Stream);
 end;
 
 procedure TM2100MessageDecoder.ReplaceLog(const aLog: TCustomLog);
 begin
   Log.Free;
   fLog := aLog;
-end;
-
-function TM2100MessageDecoder.ReadSubCommand(const aId: byte): TM2100SubCommand;
-begin
-  result := TM2100SubCommand.Construct(aId);
-  if result = nil then
-    result := TM2100SubCommand.Create(aId)
-  else
-    result.LoadFromStream(Stream);
 end;
 
 procedure TM2100MessageDecoder.ReadCheckSum;

@@ -1,16 +1,16 @@
 unit M2100Switcher;
 
-{$DEFINE LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
+{ $DEFINE LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
-{$DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
+{ $DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
 
 {$DEFINE LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
   //< affects
   // LOG_MESSAGE_CONTENT_BEFORE_PROCESSING
   // and
   // LOG_MESSAGE_CONTENT_BEFORE_SENDING
-  
+
 { $DEFINE LOG_COMMAND_ON_COMMAND_PROCESSING}
 { $DEFINE LOG_SUBCOMMAND_ON_SUBCOMMAND_PROCESSING}
 
@@ -20,6 +20,7 @@ uses
   SysUtils,
   Classes,
   Contnrs,
+  SyncObjs,
 
   UAdditionalTypes,
   UAdditionalExceptions,
@@ -61,17 +62,18 @@ type
       // nil stream indicates that there is no message data available at the moment
     TReceiveMessageMethod = function: TStream of object;
   public const
-    DefaultThreadWaitInterval = 300;
+    DefaultSendReceiveThreadWaitInterval = 1;
   private
     fLog: TCustomLog;
+    fIncomingEvent: TSimpleEvent;
+    fSendReceiveThreadWaitInterval: integer;
     fKeyers: TM2100KeyerList;
     fReceiveMessage: TReceiveMessageMethod;
     fSendResponse: TSendResponceMethod;
     fThread: TCustomThread;
-    fThreadWaitInterval: integer;
     fAutomationStatus: boolean;
     procedure ReplaceLog(const aLog: TCustomLog);
-    procedure Construction;
+    procedure CreateThis;
     procedure AssignDefaults;
     procedure InitializeKeyers;
     function GetKeyersStatusAsByte: byte;
@@ -92,11 +94,11 @@ type
     procedure Destruction;
   public
     property Log: TCustomLog read fLog write ReplaceLog;
+    property IncomingEvent: TSimpleEvent read fIncomingEvent;
     property Keyers: TM2100KeyerList read fKeyers;
     property ReceiveMessage: TReceiveMessageMethod read fReceiveMessage write fReceiveMessage;
     property SendResponse: TSendResponceMethod read fSendResponse write fSendResponse;
     property Thread: TCustomThread read fThread;
-    property ThreadWaitInterval: integer read fThreadWaitInterval write fThreadWaitInterval;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
@@ -118,7 +120,7 @@ end;
 constructor TM2100Switcher.Create;
 begin
   inherited Create;
-  Construction;
+  CreateThis;
 end;
 
 procedure TM2100Switcher.ReplaceLog(const aLog: TCustomLog);
@@ -127,14 +129,15 @@ begin
   fLog := aLog;
 end;
 
-procedure TM2100Switcher.Construction;
+procedure TM2100Switcher.CreateThis;
 begin
   fLog := TEmptyLog.Create;
+  fIncomingEvent := TSimpleEvent.Create(nil, false, false, '', false);
+  fSendReceiveThreadWaitInterval := DefaultSendReceiveThreadWaitInterval;
   InitializeKeyers;
   fThread := TCustomThread.Create;
   Thread.OnExecute := ExecuteSendReceiveThread;
   Thread.OnException :=  OnSendRecieveThreadException;
-  fThreadWaitInterval := DefaultThreadWaitInterval;
   AssignDefaults;
 end;
 
@@ -202,6 +205,7 @@ var
 begin
   Log.Write('TM2100 Switcher thread starts... [>]');
   repeat
+    IncomingEvent.WaitFor(fSendReceiveThreadWaitInterval);
     if @ReceiveMessage <> nil then
     begin
       incomingStream := ReceiveMessage;
@@ -211,7 +215,6 @@ begin
         incomingStream.Free;
       end;
     end;
-    Sleep(ThreadWaitInterval);
   until aThread.Stop;
   Log.Write('TM2100 Switcher thread end. [#]');
 end;
@@ -240,7 +243,6 @@ end;
 
 procedure TM2100Switcher.ProcessMessage(const aMessage: TStream);
 var
-  response: TStream;
   m: TM2100Message;
   answerM: TM2100Message;
 begin

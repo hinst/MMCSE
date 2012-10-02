@@ -10,6 +10,9 @@ uses
   madListModules,
   SysUtils,
   Classes,
+  Forms,
+  ExceptionTracer,
+  UCustomThread,
   CustomLogManager,
   PlainLogManager,
   CustomLogEntity,
@@ -23,25 +26,30 @@ uses
   M2100Command,
   M2100Message,
   M2100Switcher,
-  M2100MessageEncoder;
+  M2100MessageEncoder,
+  mmcse_MainWindow,
+  mmcse_PipeConnector in 'mmcse_PipeConnector.pas';
 
 type
   TApplication = class
   public
     constructor Create;
-  private
+  protected
     fLog: TCustomLog;
     fLogManager: TCustomLogManager;
-    fPipe: T2MPipe;
+    fMainForm: TEmulatorMainForm;
+    fInitializeThread: TCustomThread;
     fSwitcher: TM2100Switcher;
     procedure InitializeLog;
-    procedure InitializeSwitcher;
     procedure ActualRun;
     procedure SafeRun;
+    procedure InitializeSwitcher;
+    procedure FinalizeLog;
   public
     property Log: TCustomLog read fLog;
     property LogManager: TCustomLogManager read fLogManager;
-    property Pipe: T2MPipe read fPipe;
+    property MainForm: TEmulatorMainForm read fMainForm;
+    property InitializeThread: TCustomThread read fInitializeThread;
     property Switcher: TM2100Switcher read fSwitcher;
     procedure Run;
     destructor Destroy; override;
@@ -63,28 +71,46 @@ var
   consoleLogWriter: TCustomLogWriter;
 begin
   fLogManager := TPlainLogManager.Create;
-  GlobalLogManager := LogManager;
-  fLog := TLog.Create(LogManager, 'APP');
   consoleLogWriter := TConsoleLogWriter.Create;
   LogManager.AddWriter(consoleLogWriter);
+  GlobalLogManager := LogManager;
+  fLog := TLog.Create(LogManager, 'APP');
 end;
 
 procedure TApplication.InitializeSwitcher;
 begin
   Log.Write('Now initializing switcher...');
   fSwitcher := TM2100Switcher.Create;
-  fPipe := T2MPipe.Create('\\.\pipe\nVisionMCS');
+  {fPipe := T2MPipe.Create('\\.\pipe\nVisionMCS');
   Switcher.ReceiveMessage := Pipe.RequestReceiveMessage;
   Switcher.SendResponse := Pipe.SendResponse;
   Switcher.Log := TLog.Create(LogManager, 'Switcher');
+  }
 end;
 
+{
+procedure TApplication.InitializeSwitcher;
+}
+
 procedure TApplication.ActualRun;
+var
+  mainForm: TEmulatorMainForm;
 begin
+  InitializeLog;
+  Log.Write('-->', 'Now initializing application...');
+  Application.Initialize;
+  Application.CreateForm(TEmulatorMainForm, mainForm);
+  Log.Write('>>>', 'Now running application...');
+  Application.Run;
+  Log.Write('|||', 'Now finalizing application...');
+  mainForm.Free;
+  FinalizeLog;
+  {
   InitializeSwitcher;
   Switcher.Thread.Resume;
   Pipe.WaitForClient;
   Switcher.Thread.WaitFor;
+  }
 end;
 
 procedure TApplication.SafeRun;
@@ -100,20 +126,21 @@ begin
   end;
 end;
 
+procedure TApplication.FinalizeLog;
+begin
+  Log.Write('Now finalizing log...');
+  FreeAndNil(fLog);
+  GlobalLogManager := nil;
+  FreeAndNil(fLogManager);
+end;
+
 procedure TApplication.Run;
 begin
-  Log.Write('Now running application... [-->]');
   SafeRun;
-  Log.Write('Now ending application... [ . ]');
 end;
 
 destructor TApplication.Destroy;
 begin
-  Log.Write('Now destroying application...');
-  FreeAndNil(fSwitcher);
-  FreeAndNil(fPipe);
-  FreeAndNil(fLog);
-  FreeAndNil(GlobalLogManager);
   inherited;
 end;
 
@@ -121,9 +148,17 @@ var
   application: TApplication;
 
 begin
-  application := TApplication.Create;
-  application.Run;
-  application.Free;
+  try
+    application := TApplication.Create;
+    application.Run;
+    application.Free;
+  except
+    on e: Exception do
+    begin
+      WriteLN('GLOBAL EXCEPTION');
+      WriteLN(GetExceptionInfo(e));
+    end;
+  end;
 end.
 
 

@@ -229,7 +229,8 @@ end;
 function TM2100MessageEncoder.EncodeAsAcknowledged: boolean;
 begin
   result := Msg.IsAcknowledged;
-  Stream.WriteBuffer(M2100MessageCommandClass_ACKNOWLEDGED, 1);
+  if result then
+    Stream.WriteBuffer(M2100MessageCommandClass_ACKNOWLEDGED, 1);
 end;
 
 

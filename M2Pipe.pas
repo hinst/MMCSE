@@ -64,8 +64,9 @@ end;
 
 procedure T2MPipe.Initialize;
 begin
-  fPipe := CreateNamedPipeA(PAnsiChar(Name),
-    PIPE_ACCESS_DUPLEX,
+  fPipe := CreateNamedPipeA(
+    PAnsiChar(Name),
+    PIPE_ACCESS_DUPLEX or FILE_FLAG_OVERLAPPED,
     GetPipeMode,
     T2MPIPE_MAX_PIPE_INSTANCE_COUNT,
     T2MPIPE_BUFFER_SIZE, T2MPIPE_BUFFER_SIZE,
@@ -79,7 +80,11 @@ end;
 procedure T2MPipe.WaitForClient;
 var
   waitResult: BOOL;
+  event: THandle;
+  overlapped: TOverlapped;
 begin
+  event := CreateEvent(nil, false, false, nil);
+  overlapped.hEvent := event;
   AssertPipeOpened;
   waitResult := ConnectNamedPipe(Pipe, nil);
   if not waitResult then
