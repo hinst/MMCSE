@@ -12,23 +12,15 @@ uses
   Classes,
   Forms,
   ExceptionTracer,
-  UCustomThread,
   CustomLogManager,
   PlainLogManager,
   CustomLogEntity,
   DefaultLogEntity,
   CustomLogWriter,
   ConsoleLogWriter,
-  M2Pipe,
-  M2100MessageDecoder,
-  M2100PipeThreader,
-  mmcse_common,
-  M2100Command,
-  M2100Message,
-  M2100Switcher,
-  M2100MessageEncoder,
-  mmcse_MainWindow,
-  mmcse_PipeConnector in 'mmcse_PipeConnector.pas';
+  mmcse_common in 'mmcse_common.pas',
+  mmcse_MainWindow in 'mmcse_MainWindow.pas',
+  M2100Switcher in 'M2100Switcher.pas';
 
 type
   TApplication = class
@@ -38,8 +30,6 @@ type
     fLog: TCustomLog;
     fLogManager: TCustomLogManager;
     fMainForm: TEmulatorMainForm;
-    fInitializeThread: TCustomThread;
-    fSwitcher: TM2100Switcher;
     procedure InitializeLog;
     procedure ActualRun;
     procedure SafeRun;
@@ -49,11 +39,12 @@ type
     property Log: TCustomLog read fLog;
     property LogManager: TCustomLogManager read fLogManager;
     property MainForm: TEmulatorMainForm read fMainForm;
-    property InitializeThread: TCustomThread read fInitializeThread;
-    property Switcher: TM2100Switcher read fSwitcher;
     procedure Run;
     destructor Destroy; override;
   end;
+
+const
+  DefaultPipeName = '\\.\pipe\nVisionMCS';
 
 procedure WriteLine(const aText: PChar); safecall;
 begin
@@ -63,7 +54,6 @@ end;
 constructor TApplication.Create;
 begin
   inherited Create;
-  InitializeLog;
 end;
 
 procedure TApplication.InitializeLog;
@@ -74,43 +64,29 @@ begin
   consoleLogWriter := TConsoleLogWriter.Create;
   LogManager.AddWriter(consoleLogWriter);
   GlobalLogManager := LogManager;
-  fLog := TLog.Create(LogManager, 'APP');
+  fLog := TLog.Create(LogManager, 'Application');
 end;
 
 procedure TApplication.InitializeSwitcher;
 begin
-  Log.Write('Now initializing switcher...');
-  fSwitcher := TM2100Switcher.Create;
-  {fPipe := T2MPipe.Create('\\.\pipe\nVisionMCS');
-  Switcher.ReceiveMessage := Pipe.RequestReceiveMessage;
-  Switcher.SendResponse := Pipe.SendResponse;
-  Switcher.Log := TLog.Create(LogManager, 'Switcher');
-  }
 end;
 
-{
-procedure TApplication.InitializeSwitcher;
-}
-
 procedure TApplication.ActualRun;
-var
-  mainForm: TEmulatorMainForm;
 begin
   InitializeLog;
   Log.Write('-->', 'Now initializing application...');
   Application.Initialize;
-  Application.CreateForm(TEmulatorMainForm, mainForm);
+  Application.MainFormOnTaskBar := true;
+  Application.CreateForm(TEmulatorMainForm, fMainForm);
   Log.Write('>>>', 'Now running application...');
+  Log.Write('ffffffffffffffffffffffffffffff fffffffffffffffffffffffffffffffffffffffffffffff  ffffffffffffffffffffffffffffffffffff fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff ffffffffffffffffff'
+   + 'fffffffffffffffffffffffffffffffffffffffffffff  ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff ffffffffffffffffffffffffffff' + sLineBreak
+   + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaa');
+   
   Application.Run;
   Log.Write('|||', 'Now finalizing application...');
-  mainForm.Free;
+  FreeAndNil(fMainForm);
   FinalizeLog;
-  {
-  InitializeSwitcher;
-  Switcher.Thread.Resume;
-  Pipe.WaitForClient;
-  Switcher.Thread.WaitFor;
-  }
 end;
 
 procedure TApplication.SafeRun;
@@ -120,8 +96,11 @@ begin
   except
     on e: Exception do
     begin
-      WriteLN('Exception: ' + e.ClassName);
-      WriteLN('Exc.messg: "' + e.Message + '"');
+      if IsConsole then
+      begin
+        WriteLN('Exception occured: Application.ActualRun');
+        WriteLN(GetExceptionInfo(e));
+      end;
     end;
   end;
 end;
@@ -141,7 +120,7 @@ end;
 
 destructor TApplication.Destroy;
 begin
-  inherited;
+  inherited Destroy;
 end;
 
 var
@@ -155,8 +134,11 @@ begin
   except
     on e: Exception do
     begin
-      WriteLN('GLOBAL EXCEPTION');
-      WriteLN(GetExceptionInfo(e));
+      if IsConsole then
+      begin
+        WriteLN('GLOBAL EXCEPTION');
+        WriteLN(GetExceptionInfo(e));
+      end;
     end;
   end;
 end.

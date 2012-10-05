@@ -14,19 +14,21 @@ type
   public
     constructor Create(const aName: string);
   protected
-    fClientConnected: boolean;
+    fConnected: boolean;
     class function GetPipeMode: DWORD; inline;
     function IsDataAvailable: boolean;
-    procedure Initialize;
+    procedure CreateWindowsPipe;
   public
-    property ClientConnected: boolean read fClientConnected;
+    property Connected: boolean read fConnected;
     property PipeMode: DWORD read GetPipeMode;
     property DataAvailable: boolean read IsDataAvailable;
-    procedure WaitForClient;
-    function Read: TMemoryStream;
 
-    function RequestReceiveMessage: TStream;
-    procedure SendResponse(const aStream: TStream);
+    procedure Startup;
+    function WaitForClient(const aTime: DWORD): boolean;
+    function ReadMessage: TStream;
+    function ReadMessageIfAny: TStream;
+    procedure SendMessage(const aStream: TStream);
+    destructor Destroy; override;
   end;
 
 const
@@ -36,10 +38,15 @@ const
 
 implementation
 
+procedure T2MPipe.Startup;
+begin
+  CreateWindowsPipe;  
+end;
+
 constructor T2MPipe.Create(const aName: string);
 begin
   inherited Create(aName);
-  Initialize;
+  CreateWindowsPipe;
 end;
 
 class function T2MPipe.GetPipeMode: DWORD;
@@ -52,7 +59,7 @@ var
   totalAvailable: DWORD;
   messageAvailable: DWORD;
 begin
-  if (not PipeOpened) or (not ClientConnected) then
+  if (not PipeOpened) or (not Connected) then
   begin
     result := false;
     exit;
@@ -62,7 +69,7 @@ begin
   result := totalAvailable <> 0;
 end;
 
-procedure T2MPipe.Initialize;
+procedure T2MPipe.CreateWindowsPipe;
 begin
   fPipe := CreateNamedPipeA(
     PAnsiChar(Name),
@@ -77,22 +84,26 @@ begin
     raise ECannotCreatePipe.Create('');
 end;
 
-procedure T2MPipe.WaitForClient;
+function T2MPipe.WaitForClient(const aTime: DWORD): boolean;
 var
   waitResult: BOOL;
-  event: THandle;
-  overlapped: TOverlapped;
+  event: TWindowsOverlappedEvent;
 begin
-  event := CreateEvent(nil, false, false, nil);
-  overlapped.hEvent := event;
+  event := TWindowsOverlappedEvent.Create;
   AssertPipeOpened;
-  waitResult := ConnectNamedPipe(Pipe, nil);
+  waitResult := ConnectNamedPipe(Pipe, event.Overlapped);
   if not waitResult then
     raise EConnectionFailure.Create('');
-  fClientConnected := true;
+  try
+    event.Wait(aTime);
+    result := true;
+  except
+    result := false;
+  end;
+  fConnected := result;
 end;
 
-function T2MPipe.Read: TMemoryStream;
+function T2MPipe.ReadMessage: TStream;
 var
   readResult: boolean;
   buffer: array[0..T2MPIPE_BUFFER_SIZE] of byte;
@@ -106,14 +117,14 @@ begin
   result.Write(buffer, size);
 end;
 
-function T2MPipe.RequestReceiveMessage: TStream;
+function T2MPipe.ReadMessageIfAny: TStream;
 begin
   result := nil;
   if DataAvailable then
-    result := Read;
+    result := ReadMessage;
 end;
 
-procedure T2MPipe.SendResponse(const aStream: TStream);
+procedure T2MPipe.SendMessage(const aStream: TStream);
 var
   writeResult: boolean;
   buffer: array[0..T2MPIPE_BUFFER_SIZE] of byte;
@@ -126,6 +137,13 @@ begin
   writeResult := WriteFile(Pipe, buffer, size, resultSize, nil);
   if not writeResult then
     raise ECannotWritePipe.Create('Can not write pipe: ' + IntToStr(Pipe));
+end;
+
+destructor T2MPipe.Destroy;
+begin
+  if PipeOpened then
+    CloseHandle(Pipe);
+  inherited Destroy; 
 end;
 
 end.

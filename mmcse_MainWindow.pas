@@ -11,6 +11,8 @@ uses
   Controls,
   Forms,
 
+  EmptyLogEntity,
+  DefaultLogEntity,
   VCLLogDisplayerAttachable,
 
   mmcse_common;
@@ -21,17 +23,21 @@ type
   public
     constructor Create(aOwner: TComponent); override;
   protected
+    fLog: TEmptyLog;
     fLogDisplay: TLogDisplayer;
+    procedure SetLog(const aLog: TEmptyLog);
     procedure CreateThis;
     procedure AdjustInitialPosition;
     procedure DestroyThis;
   public
+    property Log: TEmptyLog read fLog write SetLog;
     property LogDisplay: TLogDisplayer read fLogDisplay;
+    procedure DisposeContent;
     destructor Destroy; override;
   end;
 
 
-  implementation
+implementation
 
 constructor TEmulatorMainForm.Create(aOwner: TComponent);
 begin
@@ -39,10 +45,18 @@ begin
   CreateThis;
 end;
 
+procedure TEmulatorMainForm.SetLog(const aLog: TEmptyLog);
+begin
+  ReplaceLog(fLog, aLog);
+end;
+
 procedure TEmulatorMainForm.CreateThis;
 begin
   AdjustInitialPosition;
+  fLog := TLog.Create(GlobalLogManager, 'EmulatorMainForm');
   fLogDisplay := TLogDisplayer.Create(self);
+  LogDisplay.Log := TLog.Create(GlobalLogManager, 'LogDisplay');
+  LogDisplay.Writer.Log := TLog.Create(GlobalLogManager, 'LogDisplayWriter');
   LogDisplay.AttachTo(GlobalLogManager);
   LogDisplay.Parent := self;
   LogDisplay.Align := alClient;
@@ -57,11 +71,19 @@ end;
 
 procedure TEmulatorMainForm.DestroyThis;
 begin
-  FreeAndNil(fLogDisplay);
+  DisposeContent;
+  FreeAndNil(fLog);
+end;
+
+procedure TEmulatorMainForm.DisposeContent;
+begin
+  if LogDisplay <> nil then
+    FreeAndNil(fLogDisplay);
 end;
 
 destructor TEmulatorMainForm.Destroy;
 begin
+  Log.Write('Destroy...');
   DestroyThis;
   inherited Destroy;
 end;
