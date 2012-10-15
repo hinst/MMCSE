@@ -67,7 +67,7 @@ type
     fLog: TEmptyLog;
     fIncomingEvent: TSimpleEvent;
     fKeyers: TM2100KeyerList;
-    fSendResponse: TSendResponceMethod;
+    fOnSendResponse: TSendResponceMethod;
     fAutomationStatus: boolean;
     procedure CreateThis;
     procedure AssignDefaults;
@@ -89,7 +89,7 @@ type
     property IncomingEvent: TSimpleEvent read fIncomingEvent;
     property Keyers: TM2100KeyerList read fKeyers;
       // this propery should be assigned by the user of this class
-    property SendResponse: TSendResponceMethod read fSendResponse write fSendResponse;
+    property OnSendResponse: TSendResponceMethod read fOnSendResponse write fOnSendResponse;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
@@ -261,9 +261,9 @@ procedure TM2100Switcher.SafeSendMessage(const aMessage: TStream);
 begin
   try
     AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-    AssertAssigned(@SendResponse, 'SendResponse', TVariableType.Prop);
+    AssertAssigned(@OnSendResponse, 'SendResponse', TVariableType.Prop);
     StreamRewind(aMessage);
-    SendResponse(aMessage);
+    OnSendResponse(aMessage);
   except
     on e: Exception do
     begin

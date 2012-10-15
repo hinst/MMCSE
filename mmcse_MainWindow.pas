@@ -13,9 +13,10 @@ uses
 
   EmptyLogEntity,
   DefaultLogEntity,
-  VCLLogDisplayerAttachable,
+  VCLLogPanel,
 
-  mmcse_common;
+  mmcse_common,
+  mmcse_ControlPanel;
 
 
 type
@@ -24,14 +25,16 @@ type
     constructor Create(aOwner: TComponent); override;
   protected
     fLog: TEmptyLog;
-    fLogDisplay: TLogDisplayer;
+    fLogPanel: TLogViewPanel;
+    fControlPanel: TControlPanel;
     procedure SetLog(const aLog: TEmptyLog);
     procedure CreateThis;
     procedure AdjustInitialPosition;
     procedure DestroyThis;
   public
     property Log: TEmptyLog read fLog write SetLog;
-    property LogDisplay: TLogDisplayer read fLogDisplay;
+    property LogPanel: TLogViewPanel read fLogPanel;
+    property ControlPanel: TControlPanel read fControlPanel;
     procedure DisposeContent;
     destructor Destroy; override;
   end;
@@ -54,12 +57,19 @@ procedure TEmulatorMainForm.CreateThis;
 begin
   AdjustInitialPosition;
   fLog := TLog.Create(GlobalLogManager, 'EmulatorMainForm');
-  fLogDisplay := TLogDisplayer.Create(self);
-  LogDisplay.Log := TLog.Create(GlobalLogManager, 'LogDisplay');
-  LogDisplay.Writer.Log := TLog.Create(GlobalLogManager, 'LogDisplayWriter');
-  LogDisplay.AttachTo(GlobalLogManager);
-  LogDisplay.Parent := self;
-  LogDisplay.Align := alClient;
+  {$REGION Log panel}
+  fLogPanel := TLogViewPanel.Create(self);
+  LogPanel.Log := TLog.Create(GlobalLogManager, 'LogDisplay');
+  LogPanel.Writer.Log := TLog.Create(GlobalLogManager, 'LogDisplayWriter');
+  LogPanel.AttachTo(GlobalLogManager);
+  LogPanel.Align := alClient;
+  LogPanel.Parent := self;
+  {$ENDREGION}
+  {$REGION Control panel}
+  fControlPanel := TControlPanel.Create(self);
+  ControlPanel.Align := alBottom;
+  ControlPanel.Parent := self;
+  {$ENDREGION}
 end;
 
 procedure TEmulatorMainForm.AdjustInitialPosition;
@@ -77,8 +87,8 @@ end;
 
 procedure TEmulatorMainForm.DisposeContent;
 begin
-  if LogDisplay <> nil then
-    FreeAndNil(fLogDisplay);
+  if LogPanel <> nil then
+    FreeAndNil(fLogPanel);
 end;
 
 destructor TEmulatorMainForm.Destroy;

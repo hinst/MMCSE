@@ -23,9 +23,8 @@ type
     property PipeMode: DWORD read GetPipeMode;
     property DataAvailable: boolean read IsDataAvailable;
 
-    procedure Startup;
     function WaitForClient(const aTime: DWORD): boolean;
-    function ReadMessage: TStream;
+    function ReadMessage(const aTime: DWORD): TStream;
     function ReadMessageIfAny: TStream;
     procedure SendMessage(const aStream: TStream);
     destructor Destroy; override;
@@ -37,11 +36,6 @@ const
 
 
 implementation
-
-procedure T2MPipe.Startup;
-begin
-  CreateWindowsPipe;  
-end;
 
 constructor T2MPipe.Create(const aName: string);
 begin
@@ -81,37 +75,49 @@ begin
     PSecurityAttributes(nil)
   );
   if Pipe = INVALID_HANDLE_VALUE then
-    raise ECannotCreatePipe.Create('');
+    raise ECannotCreatePipe.Create('Invalid handle returned');
 end;
 
 function T2MPipe.WaitForClient(const aTime: DWORD): boolean;
 var
-  waitResult: BOOL;
   event: TWindowsOverlappedEvent;
+  lastError: DWORD;
+  connectResult: BOOL;
 begin
-  event := TWindowsOverlappedEvent.Create;
   AssertPipeOpened;
-  waitResult := ConnectNamedPipe(Pipe, event.Overlapped);
-  if not waitResult then
-    raise EConnectionFailure.Create('');
+  event := TWindowsOverlappedEvent.Create;
   try
-    event.Wait(aTime);
-    result := true;
-  except
-    result := false;
+    connectResult := ConnectNamedPipe(Pipe, event.Overlapped);
+    if false = connectResult then
+    begin
+      lastError := GetLastError;
+      if (lastError <> ERROR_IO_PENDING) and (lastError <> ERROR_PIPE_CONNECTED) then
+        raise ECannotConnectPipe.Create('Error code is ' + IntToStr(lastError));
+      result := event.Wait(aTime);
+    end;
+  finally
+    event.Free;
   end;
   fConnected := result;
 end;
 
-function T2MPipe.ReadMessage: TStream;
+function T2MPipe.ReadMessage(const aTime: DWORD): TStream;
 var
-  readResult: boolean;
+  waitResult: boolean;
+  event: TWindowsOverlappedEvent;
   buffer: array[0..T2MPIPE_BUFFER_SIZE] of byte;
   size: DWORD;
 begin
+  result := nil;
   AssertPipeOpened;
-  readResult := ReadFile(Pipe, buffer, T2MPIPE_BUFFER_SIZE, size, nil);
-  if not readResult then
+  event := TWindowsOverlappedEvent.Create;
+  try
+    ReadFile(Pipe, buffer, T2MPIPE_BUFFER_SIZE, size, event.Overlapped);
+    waitResult := event.Wait(aTime);
+  finally
+    event.Free;
+  end;
+  if not waitResult then
     raise ECannotReadPipe.Create('');
   result := TMemoryStream.Create;
   result.Write(buffer, size);
@@ -121,7 +127,7 @@ function T2MPipe.ReadMessageIfAny: TStream;
 begin
   result := nil;
   if DataAvailable then
-    result := ReadMessage;
+    //result := ReadMessage;
 end;
 
 procedure T2MPipe.SendMessage(const aStream: TStream);

@@ -472,58 +472,6 @@
       
       
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
       <Excluded_Packages Name="$(BDS)\bin\bcboffice2k100.bpl">CodeGear C++Builder Office 2000 Servers Package</Excluded_Packages>
       <Excluded_Packages Name="$(BDS)\bin\bcbofficexp100.bpl">CodeGear C++Builder Office XP Servers Package</Excluded_Packages>
       <Excluded_Packages Name="$(BDS)\bin\dcloffice2k100.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -536,7 +484,11 @@
       <MainSource>MainSource</MainSource>
     </DelphiCompile>
     <DCCReference Include="M2100Switcher.pas" />
+    <DCCReference Include="M2Pipe.pas" />
     <DCCReference Include="mmcse_common.pas" />
+    <DCCReference Include="mmcse_ControlPanel.pas" />
     <DCCReference Include="mmcse_MainWindow.pas" />
+    <DCCReference Include="mmcse_PipeConnector.pas" />
+    <DCCReference Include="mmcse_project_ApplicationClass.pas" />
   </ItemGroup>
 </Project>
