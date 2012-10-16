@@ -9,6 +9,7 @@ uses
   UCustomThread,
   UAdditionalExceptions,
   ExceptionTracer,
+  UStreamUtilities,
 
   CustomLogEntity,
   EmptyLogEntity,
@@ -20,17 +21,21 @@ type
   public
     constructor Create;
   public const
-    DefaultWaitInterval = 10; //s
+    DefaultWaitForConnectionInterval = 30 * 1000; // thirty seconds
+    DefaultShutdownResponsiveness = 1000;
+  public type
+    THandleIncomingMessageMethod = procedure(const aStream: TStream) of object;  
   protected
     fLog: TEmptyLog;
     fPipeName: string;
     fPipe: T2MPipe;
     fThread: TCustomThread;
     fOnConnected: TNotifyEvent;
+    fOnIncomingMessage: THandleIncomingMessageMethod;
     procedure SetLog(const aLog: TEmptyLog);
     procedure Routine(const aThread: TCustomThread);
     function ConnectRoutine(const aThread: TCustomThread): boolean;
-    function ReceiveRoutine(const aThread: TCustomThread): boolean;
+    procedure ReceiveRoutine(const aThread: TCustomThread);
   public
     property Log: TEmptyLog read fLog write SetLog;
       // assign before Startup
@@ -38,7 +43,10 @@ type
     property Pipe: T2MPipe read fPipe;
     property Thread: TCustomThread read fThread;
     property OnConnected: TNotifyEvent read fOnConnected write fOnConnected;
+    property OnIncomingMessage: THandleIncomingMessageMethod 
+      read fOnIncomingMessage write fOnIncomingMessage;
     procedure Startup;
+    procedure SendMessage(const aStream: TStream);
     destructor Destroy; override;
   end;
 
@@ -51,11 +59,6 @@ begin
   Log := nil;
 end;
 
-function TEmulationPipeConnector.ReceiveRoutine(const aThread: TCustomThread): boolean;
-begin
-
-end;
-
 procedure TEmulationPipeConnector.Routine(const aThread: TCustomThread);
 var
   result: boolean;
@@ -63,30 +66,83 @@ begin
   result := ConnectRoutine(aThread);
   if not result then
     exit;
+  ReceiveRoutine(aThread);
 end;
 
 function TEmulationPipeConnector.ConnectRoutine(const aThread: TCustomThread): boolean;
 var
-  waitForClientResult: boolean;
   timeSpent: integer;
+  logText: string;
+  connect: TM2PipeConnectRetry;
 begin
-  waitForClientResult := false;
-  Log.Write('Now waiting for client...');
+  result := false;
+  Log.Write('Now connecting pipe "' + Pipe.Name + '"...');
   try
-    timeSpent := 0;
-    while (timeSpent < DefaultWaitInterval) and (not aThread.Stop) do
-      waitForClientResult := Pipe.WaitForClient(1000);
+    connect := nil;
+    try
+      timeSpent := 0;
+      connect := Pipe.Connect;
+      while (timeSpent <= DefaultWaitForConnectionInterval) and (not aThread.Stop) 
+        and (not result)
+      do
+      begin
+        result := connect.Connect(DefaultShutdownResponsiveness);
+        timeSpent := timeSpent + DefaultShutdownResponsiveness;
+      end;
+    finally
+      connect.Free;
+    end;
   except
     on e: Exception do
     begin
-      Log.Write('ERROR', 'Unsuccessful.' + sLineBreak + GetExceptionInfo(e));
+      Log.Write('ERROR', 'Connect: unsuccessful.' + sLineBreak + GetExceptionInfo(e));
       AssertSuppressable(e);
+      exit;
     end;
   end;
-  Log.Write('Wait for client: result: ' + BoolToStr(waitForClientResult, true));
-  if waitForClientResult then
-    if Assigned(OnConnected) then
+  logText := 'Wait for connection: result: ' + BoolToStr(result, true);
+  logText := 
+    logText + sLineBreak + 'Have been waiting for: ' + FormatFloat('0.000', timeSpent / 1000) + '.';
+  if timeSpent >= DefaultWaitForConnectionInterval then
+    logText := logText + ' Timed out.';
+  Log.Write(logText);
+  if result then
+    if @OnConnected <> nil then
       OnConnected(self);
+end;
+
+procedure TEmulationPipeConnector.ReceiveRoutine(const aThread: TCustomThread);
+var
+  incomingMessage: TStream;
+  reader: TM2PipeReadRetry;
+begin
+  reader := Pipe.ReadMessage;
+  while false = aThread.Stop do
+  begin
+    incomingMessage := nil;
+    try
+      incomingMessage := reader.Read(DefaultShutdownResponsiveness);
+    except
+      on e: Exception do
+      begin
+        Log.Write('ERROR', 'Read pipe: unsuccessful.' + sLineBreak
+          + GetExceptionInfo(e));
+        AssertSuppressable(e);
+      end;
+    end;
+    if incomingMessage <> nil then
+      if @OnIncomingMessage <> nil then
+      begin
+        StreamRewind(incomingMessage);
+        OnIncomingMessage(incomingMessage);
+      end;
+  end;
+  reader.Free;
+end;
+
+procedure TEmulationPipeConnector.SendMessage(const aStream: TStream);
+begin
+  Pipe.SendMessage(aStream);
 end;
 
 procedure TEmulationPipeConnector.SetLog(const aLog: TEmptyLog);

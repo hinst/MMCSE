@@ -4,8 +4,11 @@ interface
 
 uses
   SysUtils,
+  Classes,
   Forms,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
   ExceptionTracer,
 
   CustomLogManager,
@@ -122,9 +125,16 @@ begin
 end;
 
 procedure TMMCSEApplication.OnConnectedHandler(aSender: TObject);
+var
+  connector: TEmulationPipeConnector;
 begin
   fSwitcher := TM2100Switcher.Create;
-  Switcher.OnSendResponse := nil;
+  Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
+  AssertAssigned(aSender, 'aSender', TVariableType.Argument);
+  connector := aSender as TEmulationPipeConnector;
+
+  connector.OnIncomingMessage := Switcher.ProcessMessage;
+  Switcher.OnSendResponse := connector.SendMessage;
 end;
 
 procedure TMMCSEApplication.FinalizeLog;

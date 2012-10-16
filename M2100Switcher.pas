@@ -60,7 +60,6 @@ type
   public type
     TSendResponceMethod = procedure(const aResponce: TStream) of object;
       // nil stream indicates that there is no message data available at the moment
-    TReceiveMessageMethod = function: TStream of object;
   public const
     DefaultSendReceiveThreadWaitInterval = 1;
   private
@@ -71,6 +70,7 @@ type
     fAutomationStatus: boolean;
     procedure CreateThis;
     procedure AssignDefaults;
+    procedure SetLog(const aLog: TEmptyLog);
     procedure InitializeKeyers;
     function GetKeyersStatusAsByte: byte;
     function GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
@@ -85,7 +85,7 @@ type
     procedure SafeSendMessage(const aMessage: TStream);
     procedure DestroyThis;
   public
-    property Log: TEmptyLog read fLog;
+    property Log: TEmptyLog read fLog write SetLog;
     property IncomingEvent: TSimpleEvent read fIncomingEvent;
     property Keyers: TM2100KeyerList read fKeyers;
       // this propery should be assigned by the user of this class
@@ -142,6 +142,11 @@ begin
   AutomationStatus := true;
 end;
 
+procedure TM2100Switcher.SetLog(const aLog: TEmptyLog);
+begin
+  ReplaceLog(fLog, aLog);
+end;
+
 function TM2100Switcher.GetKeyersStatusAsByte: byte;
 begin
   result := 0;
@@ -182,6 +187,8 @@ begin
 end;
 
 function TM2100Switcher.DecodeMessage(const aMessage: TStream): TM2100Message;
+var
+  data: string;
 begin
   result := nil;
   try
@@ -190,14 +197,21 @@ begin
   except
     on e: Exception do
     begin
-      Log.Write('ERROR', 'Unable to decode incoming message.');
-      Log.Write(GetExceptionInfo(e));
+      try
+        data := StreamToText(aMessage);
+      except
+        data := 'undisplayable';
+      end;
+      Log.Write('ERROR', 'Unable to decode message. ' + sLineBreak
+        + 'Stream data: ' + data + sLineBreak
+        + GetExceptionInfo(e));
     end;
   end;
 end;
 
 function TM2100Switcher.SafeDecodeMessage(const aMessage: TStream): TM2100Message;
 begin
+  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   try
     result := DecodeMessage(aMessage);
   except
