@@ -10,6 +10,7 @@ uses
   UAdditionalExceptions,
   ExceptionTracer,
   UStreamUtilities,
+  UTextUtilities,
 
   CustomLogEntity,
   EmptyLogEntity,
@@ -117,6 +118,7 @@ var
   reader: TM2PipeReadRetry;
 begin
   reader := Pipe.ReadMessage;
+  reader.Log := Log.CreateAnother('reader');
   while false = aThread.Stop do
   begin
     incomingMessage := nil;
@@ -134,7 +136,9 @@ begin
       if @OnIncomingMessage <> nil then
       begin
         StreamRewind(incomingMessage);
+        Log.Write('Calling "OnIncomingMessage"');
         OnIncomingMessage(incomingMessage);
+        Log.Write('"OnIncomingMessage" returned control.');
       end;
   end;
   reader.Free;

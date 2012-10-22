@@ -5,7 +5,7 @@ unit M2100Switcher;
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
 { $DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
 
-{$DEFINE LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
+{ $DEFINE LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
   //< affects
   // LOG_MESSAGE_CONTENT_BEFORE_PROCESSING
   // and
@@ -76,7 +76,7 @@ type
     function GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
     function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
     function DecodeMessage(const aMessage: TStream): TM2100Message;
-    function ProcessMessage(const aMessage: TM2100Message): TM2100Message; overload;
+    function ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message; 
     function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
@@ -93,7 +93,7 @@ type
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
-    procedure ProcessMessage(const aMessage: TStream); overload;
+    procedure ProcessMessage(const aMessage: TStream);
     destructor Destroy; override;
   end;
 
@@ -234,7 +234,7 @@ begin
     exit;
   end;
   try
-    result := ProcessMessage(aMessage);
+    result := ProcessDecodedMessage(aMessage);
   except
     on e: Exception do
     begin
@@ -294,7 +294,7 @@ begin
   end;
 end;
 
-function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
+function TM2100Switcher.ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}

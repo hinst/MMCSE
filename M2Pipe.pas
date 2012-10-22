@@ -7,6 +7,8 @@ uses
   Classes,
   SysUtils,
 
+  EmptyLogEntity,
+
   WindowsPipes,
   UWindowsOverlappedEvent;
 
@@ -18,10 +20,13 @@ type
   public
     constructor Create(const aPipe: THandle);
   private
+    fLog: TEmptyLog;
     fPipe: THandle;
     fEvent: TWindowsOverlappedEvent;
     fBuffer: array[0..T2MPIPE_BUFFER_SIZE] of byte;
+    procedure SetLog(const aLog: TEmptyLog);
   public
+    property Log: TEmptyLog read fLog write SetLog;
     property Pipe: THandle read fPipe;
     property Event: TWindowsOverlappedEvent read fEvent;
     function Read(const aTime: DWORD): TStream;
@@ -68,7 +73,13 @@ implementation
 constructor TM2PipeReadRetry.Create(const aPipe: THandle);
 begin
   inherited Create;
+  fLog := TEmptyLog.Create;
   fPipe := aPipe;
+end;
+
+procedure TM2PipeReadRetry.SetLog(const aLog: TEmptyLog);
+begin
+  ReplaceLog(fLog, aLog);
 end;
 
 function TM2PipeReadRetry.Read(const aTime: DWORD): TStream;
@@ -76,13 +87,21 @@ var
   readResult: boolean;
   waitResult: boolean;
   lastError: DWORD;
-  size: DWORD;
+  NumberOfBytesRead: DWORD;
 begin
   result := nil;
+  readResult := false;
+  waitResult := false;
   if Event = nil then
   begin
     fEvent := TWindowsOverlappedEvent.Create;
-    readResult := ReadFile(Pipe, fBuffer, T2MPIPE_BUFFER_SIZE, size, event.Overlapped);
+    readResult := ReadFile(
+      Pipe,
+      fBuffer,
+      T2MPIPE_BUFFER_SIZE,
+      NumberOfBytesRead,
+      event.Overlapped
+    );
     if not readResult then // still pending
     begin
       lastError := GetLastError;
@@ -92,10 +111,12 @@ begin
   end;
   if not readResult then
     waitResult := Event.Wait(aTime);
-  if waitResult or readResult then
+  if waitResult then
+    GetOverlappedResult(Pipe, event.Overlapped^, NumberOfBytesRead, false);  
+  if (waitResult or readResult) and (NumberOfBytesRead > 0) then
   begin
     result := TMemoryStream.Create;
-    result.Write(fBuffer, size);
+    result.Write(fBuffer, NumberOfBytesRead);
     FreeAndNil(fEvent);
   end;
 end;
@@ -103,6 +124,7 @@ end;
 destructor TM2PipeReadRetry.Destroy;
 begin
   FreeAndNil(fEvent);
+  FreeAndNil(fLog);
   inherited Destroy;
 end;
 

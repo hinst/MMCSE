@@ -20,11 +20,6 @@ uses
   mmcse_project_ApplicationClass in 'mmcse_project_ApplicationClass.pas',
   mmcse_ControlPanel in 'mmcse_ControlPanel.pas';
 
-procedure WriteLine(const aText: PChar); safecall;
-begin
-  WriteLN(string(aText));
-end;
-
 var
   application: TMMCSEApplication;
 
@@ -35,12 +30,8 @@ begin
     application.Free;
   except
     on e: Exception do
-    begin
       if IsConsole then
-      begin
-        WriteLN('GLOBAL EXCEPTION' + sLineBreak + GetExceptionInfo(e));
-      end;
-    end;
+        WriteLN('GLOBAL EXCEPTION:' + sLineBreak + GetExceptionInfo(e));
   end;
 end.
 
