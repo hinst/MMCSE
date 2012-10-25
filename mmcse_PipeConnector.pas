@@ -136,9 +136,7 @@ begin
       if @OnIncomingMessage <> nil then
       begin
         StreamRewind(incomingMessage);
-        Log.Write('Calling "OnIncomingMessage"');
         OnIncomingMessage(incomingMessage);
-        Log.Write('"OnIncomingMessage" returned control.');
       end;
   end;
   reader.Free;

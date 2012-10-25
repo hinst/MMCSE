@@ -18,9 +18,10 @@ type
   public
     id: byte;
     class function Construct(const aId: byte): TM2100SubCommand;
-    class function XPT_TAKE: byte;
-    class function KEY_STAT: byte;
-    class function AUTO_STAT: byte;
+    class function TX_TYPE: byte; // HEX 03
+    class function XPT_TAKE: byte; // HEX 06
+    class function KEY_STAT: byte; // HEX OC
+    class function AUTO_STAT: byte; // HEX 0D
     procedure LoadFromStream(const aStream: TStream); virtual; abstract;
     procedure SaveToStream(const aStream: TStream); virtual; abstract;
     function IdToText: string;
@@ -54,6 +55,15 @@ type
     function SubCommandsToText: string;
     function ToText: string; overload;
     destructor Destroy; override;
+  end;
+
+  TM2100SubCommandTxType = class(TM2100SubCommand)
+  protected
+    fTran: byte;
+  public
+    property Tran: byte read fTran;
+    procedure LoadFromStream(const aStream: TStream); override;
+    function DataToText: string; override;
   end;
 
   TM2100SubCommandXptTake = class(TM2100SubCommand)
@@ -120,6 +130,8 @@ end;
 class function TM2100SubCommand.Construct(const aId: byte): TM2100SubCommand;
 begin
   result := nil;
+  if aId = TX_TYPE then
+    result := TM2100SubCommandTxType.Create(aId);
   if aId = XPT_TAKE then
     result := TM2100SubCommandXptTake.Create(aId);
   if aId = KEY_STAT then
@@ -133,6 +145,8 @@ end;
 function TM2100SubCommand.IdToText: string;
 begin
   result := 'UNKNOWN';
+  if id = TX_TYPE then
+    result := 'TX_TYPE';
   if id = XPT_TAKE then
     result := 'XPT_TAKE';
   if id = KEY_STAT then
@@ -160,6 +174,11 @@ begin
   if data <> '' then
     result := result + ' ' + data;
   result := result + ']';
+end;
+
+class function TM2100SubCommand.TX_TYPE: byte;
+begin
+  result := $03;
 end;
 
 class function TM2100SubCommand.XPT_TAKE: byte;
@@ -225,48 +244,6 @@ begin
     result := result + (SubCommands[i] as TM2100SubCommand).ToText;
 end;
 
-procedure TM2100SubCommandKeyStat.LoadFromStream(const aStream: TStream);
-begin
-  // this command has no parameters
-end;
-
-constructor TM2100SubCommandKeyStatAnswer.Create(const aStatus: byte);
-begin
-  inherited Create(KEY_STAT);
-  fStatus := aStatus;
-end;
-
-procedure TM2100SubCommandKeyStatAnswer.SaveToStream(const aStream: TStream);
-begin
-  aStream.Write(fStatus, 1);
-end;
-
-procedure TM2100SubCommandAutoStat.LoadFromStream(const aStream: TStream);
-begin
-end;
-
-constructor TM2100SubCommandAutoStatAnswer.Create(const aStatus: boolean);
-begin
-  inherited Create(AUTO_STAT);
-  fStatus := aStatus;
-end;
-
-function TM2100SubCommandAutoStatAnswer.DataToText: string;
-begin
-  result := BoolToStr(Status, true);
-end;
-
-procedure TM2100SubCommandAutoStatAnswer.SaveToStream(const aStream: TStream);
-var
-  statusByte: byte;
-begin
-  if Status then
-    statusByte := $01
-  else
-    statusByte := $00;
-  aStream.Write(statusByte, 1);
-end;
-
 constructor TM2100SubCommandUnknown.Create(const aId: byte);
 begin
   inherited Create(aId);
@@ -290,6 +267,18 @@ begin
   FreeAndNil(fUnknownData);
   inherited;
 end;
+
+
+procedure TM2100SubCommandTxType.LoadFromStream(const aStream: TStream);
+begin
+  aStream.ReadBuffer(fTran, 1);
+end;
+
+function TM2100SubCommandTxType.DataToText: string;
+begin
+  result := 'tran: ' + IntToStr(Tran);
+end;
+
 
 class function TM2100SubCommandXptTake.BusPositionToText(const aBus: byte): string;
 begin
@@ -346,4 +335,58 @@ begin
   aStream.ReadBuffer(fAudioOnlyCrosspoint, 1);
 end;
 
+
+procedure TM2100SubCommandKeyStat.LoadFromStream(const aStream: TStream);
+begin
+  // this command has no parameters
+end;
+
+
+constructor TM2100SubCommandKeyStatAnswer.Create(const aStatus: byte);
+begin
+  inherited Create(KEY_STAT);
+  fStatus := aStatus;
+end;
+
+procedure TM2100SubCommandKeyStatAnswer.SaveToStream(const aStream: TStream);
+begin
+  aStream.Write(fStatus, 1);
+end;
+
+
+procedure TM2100SubCommandAutoStat.LoadFromStream(const aStream: TStream);
+begin
+  // no data
+end;
+
+
+constructor TM2100SubCommandAutoStatAnswer.Create(const aStatus: boolean);
+begin
+  inherited Create(AUTO_STAT);
+  fStatus := aStatus;
+end;
+
+function TM2100SubCommandAutoStatAnswer.DataToText: string;
+begin
+  result := BoolToStr(Status, true);
+end;
+
+procedure TM2100SubCommandAutoStatAnswer.SaveToStream(const aStream: TStream);
+var
+  statusByte: byte;
+begin
+  if Status then
+    statusByte := $01
+  else
+    statusByte := $00;
+  aStream.Write(statusByte, 1);
+end;
+
+
 end.
+
+
+
+
+
+
