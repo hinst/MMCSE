@@ -242,8 +242,6 @@ end;
 
 destructor T2MPipe.Destroy;
 begin
-  if PipeOpened then
-    CloseHandle(Pipe);
   inherited Destroy; 
 end;
 

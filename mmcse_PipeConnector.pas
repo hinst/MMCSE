@@ -3,6 +3,7 @@ unit mmcse_PipeConnector;
 interface
 
 uses
+  Types,
   SysUtils,
   Classes,
 
@@ -22,8 +23,8 @@ type
   public
     constructor Create;
   public const
-    DefaultWaitForConnectionInterval = 30 * 1000; // thirty seconds
-    DefaultShutdownResponsiveness = 1000;
+    DefaultWaitForConnectionInterval: DWORD = 60 * 1000;
+    DefaultShutdownResponsiveness: DWORD = 1000;
   public type
     THandleIncomingMessageMethod = procedure(const aStream: TStream) of object;  
   protected
@@ -72,7 +73,7 @@ end;
 
 function TEmulationPipeConnector.ConnectRoutine(const aThread: TCustomThread): boolean;
 var
-  timeSpent: integer;
+  timeSpent: DWORD;
   logText: string;
   connect: TM2PipeConnectRetry;
 begin

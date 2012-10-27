@@ -17,6 +17,7 @@ uses
   DefaultLogEntity,
   CustomLogWriter,
   ConsoleLogWriter,
+  FileLogWriter,
 
   mmcse_common,
   mmcse_MainWindow,
@@ -64,12 +65,20 @@ end;
 procedure TMMCSEApplication.InitializeLog;
 var
   consoleLogWriter: TCustomLogWriter;
+  fileLogWriter: TFileLogWriter;
 begin
   fLogManager := TPlainLogManager.Create;
+
   consoleLogWriter := TConsoleLogWriter.Create;
   LogManager.AddWriter(consoleLogWriter);
+
   GlobalLogManager := LogManager;
   fLog := TLog.Create(LogManager, 'Application');
+  
+  fileLogWriter := TFileLogWriter.Create;
+  fileLogWriter.SetDefaultFilePath;
+  Log.Write('Log file: "' + fileLogWriter.FilePath + '"');
+  LogManager.AddWriter(fileLogWriter);
 end;
 
 procedure TMMCSEApplication.InitializeMainForm;

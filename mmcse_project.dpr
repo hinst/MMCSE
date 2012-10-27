@@ -18,7 +18,10 @@ uses
   M2Pipe in 'M2Pipe.pas',
   mmcse_PipeConnector in 'mmcse_PipeConnector.pas',
   mmcse_project_ApplicationClass in 'mmcse_project_ApplicationClass.pas',
-  mmcse_ControlPanel in 'mmcse_ControlPanel.pas';
+  mmcse_ControlPanel in 'mmcse_ControlPanel.pas',
+  M2100Command in 'M2100Command.pas',
+  M2100Message in 'M2100Message.pas',
+  M2100MessageDecoder in 'M2100MessageDecoder.pas';
 
 var
   application: TMMCSEApplication;

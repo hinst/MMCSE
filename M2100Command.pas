@@ -1,6 +1,7 @@
 unit M2100Command;
 
 { $DEFINE DEBUG_INCLUDE_HEXREP_XPT_TAKE_BUS}
+{ $DEFINE INCLUDE_SUBCOMMAND_CLASSNAME_TR}
 
 interface
 
@@ -20,6 +21,7 @@ type
     class function Construct(const aId: byte): TM2100SubCommand;
     class function TX_TYPE: byte; // HEX 03
     class function XPT_TAKE: byte; // HEX 06
+    class function OVER_SELECT: byte; // HEX 08
     class function KEY_STAT: byte; // HEX OC
     class function AUTO_STAT: byte; // HEX 0D
     procedure LoadFromStream(const aStream: TStream); virtual; abstract;
@@ -57,6 +59,7 @@ type
     destructor Destroy; override;
   end;
 
+  // HEX 03
   TM2100SubCommandTxType = class(TM2100SubCommand)
   protected
     fTran: byte;
@@ -66,12 +69,12 @@ type
     function DataToText: string; override;
   end;
 
+  // HEX 06
   TM2100SubCommandXptTake = class(TM2100SubCommand)
   protected
     fBus: word;
     fCrosspoint: byte;
     fAudioOnlyCrosspoint: byte;
-    class function BusPositionToText(const aBus: byte): string;
     function BusToText: string;
   public
     property Bus: word read fBus;
@@ -81,6 +84,19 @@ type
     function DataToText: string; override;
   end;
 
+  // HEX 08
+  TM2100SubCommandOverSelect = class(TM2100SubCommand)
+  protected
+    fBus: word;
+    fOver: byte;
+  public
+    property Bus: word read fBus;
+    property Over: byte read fOver;
+    procedure LoadFromStream(const aStream: TStream); override;
+    function DataToText: string; override;
+  end;
+
+  // HEX OC
   TM2100SubCommandKeyStat = class(TM2100SubCommand)
   public
     procedure LoadFromStream(const aStream: TStream); override;
@@ -96,6 +112,7 @@ type
     procedure SaveToStream(const aStream: TStream); override;
   end;
 
+  // HEX OD
   TM2100SubCommandAutoStat = class(TM2100SubCommand)
   public
     procedure LoadFromStream(const aStream: TStream); override;
@@ -134,6 +151,8 @@ begin
     result := TM2100SubCommandTxType.Create(aId);
   if aId = XPT_TAKE then
     result := TM2100SubCommandXptTake.Create(aId);
+  if aId = OVER_SELECT then
+    result := TM2100SubCommandOverSelect.Create(aId);
   if aId = KEY_STAT then
     result := TM2100SubCommandKeyStat.Create(aId);
   if aId = AUTO_STAT then
@@ -149,6 +168,8 @@ begin
     result := 'TX_TYPE';
   if id = XPT_TAKE then
     result := 'XPT_TAKE';
+  if id = OVER_SELECT then
+    result := 'OVER_SELECT';
   if id = KEY_STAT then
     result := 'KEY_STAT';
   if id = AUTO_STAT then
@@ -167,12 +188,17 @@ end;
 
 function TM2100SubCommand.ToText: string;
 var
-  data: string;
+  dataAsText: string;
 begin
-  data := DataToText;
-  result := '[' + ClassName + ' ' + IdToTextFull;
-  if data <> '' then
-    result := result + ' ' + data;
+  dataAsText := DataToText;
+
+  result := '[';
+  {$IFDEF INCLUDE_SUBCOMMAND_CLASSNAME_TR}
+  result := result + ClassName + ' ';
+  {$ENDIF}
+  result := result + IdToTextFull;
+  if dataAsText <> '' then
+    result := result + ' ' + dataAsText;
   result := result + ']';
 end;
 
@@ -184,6 +210,11 @@ end;
 class function TM2100SubCommand.XPT_TAKE: byte;
 begin
   result := $06;
+end;
+
+class function TM2100SubCommand.OVER_SELECT: byte;
+begin
+  result := $08;
 end;
 
 class function TM2100SubCommand.KEY_STAT: byte;
@@ -280,7 +311,7 @@ begin
 end;
 
 
-class function TM2100SubCommandXptTake.BusPositionToText(const aBus: byte): string;
+function M2100BusPositionToText(const aBus: byte): string;
 begin
   result := 'unrecognized';
   case aBus of
@@ -301,21 +332,34 @@ begin
   {$ENDIF}
 end;
 
-function TM2100SubCommandXptTake.BusToText: string;
+function M2100BusToText(const aBus: word): string;
 var
   i: integer;
   b: word;
 begin
   result := 'Bus: ';
-  b := Bus;
+  b := aBus;
   for i := 0 to SizeOf(b)*8 - 1 do
   begin
     if (b and 1) = 1 then
-      result := result + BusPositionToText(i) + ', ';
+      result := result + M2100BusPositionToText(i) + ', ';
     b := b shr 1;
   end;
   RemoveTrailing(result, ', ');
   result := result + '.';
+end;
+
+function TM2100SubCommandXptTake.BusToText: string;
+begin
+  result := M2100BusToText(Bus);
+end;
+
+procedure TM2100SubCommandXptTake.LoadFromStream(const aStream: TStream);
+begin
+  aStream.ReadBuffer(fBus, 2);
+  ReverseWord(fBus);
+  aStream.ReadBuffer(fCrosspoint, 1);
+  aStream.ReadBuffer(fAudioOnlyCrosspoint, 1);
 end;
 
 function TM2100SubCommandXptTake.DataToText: string;
@@ -327,12 +371,17 @@ begin
   result := result + BusToText;
 end;
 
-procedure TM2100SubCommandXptTake.LoadFromStream(const aStream: TStream);
+procedure TM2100SubCommandOverSelect.LoadFromStream(const aStream: TStream);
 begin
   aStream.ReadBuffer(fBus, 2);
   ReverseWord(fBus);
-  aStream.ReadBuffer(fCrosspoint, 1);
-  aStream.ReadBuffer(fAudioOnlyCrosspoint, 1);
+  aStream.ReadBuffer(fOver, 1);
+end;
+
+function TM2100SubCommandOverSelect.DataToText: string;
+begin
+  result := '';
+  result := result + M2100BusToText(Bus);
 end;
 
 
@@ -382,6 +431,8 @@ begin
   aStream.Write(statusByte, 1);
 end;
 
+
+{ TM2100SubCommandOverSelect }
 
 end.
 

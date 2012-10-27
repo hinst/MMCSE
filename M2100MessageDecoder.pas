@@ -31,6 +31,7 @@ type
     fLog: TCustomLog;
     fStream: TStream;
     fMessage: TM2100Message;
+    function GetLastCommand: TM2100Command;
     function ReadLength(out aDoubleLength: boolean): integer;
     {$REGION reading routine}
     procedure ReadSTX;
@@ -52,6 +53,7 @@ type
     property Stream: TStream read fStream;
       // does not owns the Msg
     property Msg: TM2100Message read fMessage;
+    property LastCommand: TM2100Command read GetLastCommand;
     procedure Decode; overload;
     class function Decode(const aStream: TStream): TM2100Message; overload;
     destructor Destroy; override;
@@ -128,13 +130,13 @@ begin
   begin
     command := TM2100Command.Create;
     Stream.ReadBuffer(command.CommandClass, 1);
+    Msg.Commands.Add(command);
     LogDecoding('Command class is $' + IntToHex(command.CommandClass, 2));
     command.Length := ReadLength(command.IsDoubleLength);
     LogDecoding('Command length is ' + IntToStr(command.Length)
       + '; DL = ' + BoolToStr(command.IsDoubleLength));
     if command.Length > 0 then
       ReadSubCommands(command);
-    Msg.Commands.Add(command);
   end;
   LogDecoding('Reading commands - finished.');
 end;
@@ -201,6 +203,14 @@ begin
   result := TM2100Message.TwosComponent(sum);
 end;
 
+function TM2100MessageDecoder.GetLastCommand: TM2100Command;
+begin
+  if Msg.Commands.Count = 0 then
+    result := nil
+  else
+    result := TM2100Command(Msg.Commands.Last);
+end;
+
 procedure TM2100MessageDecoder.AssertCheckSumCorrect;
 var
   declared, actual: byte;
@@ -212,8 +222,10 @@ begin
 end;
 
 procedure TM2100MessageDecoder.LogDecoding(const aText: string);
+{$IFDEF DEBUG_LOG_MESSAGE_DECODING_STAGES}
 var
   text: string;
+{$ENDIF}
 begin
   {$IFDEF DEBUG_LOG_MESSAGE_DECODING_STAGES}
   text := aText + ' @' + IntToStr(Stream.Position);

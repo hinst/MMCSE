@@ -43,6 +43,9 @@
     <DelphiCompile Include="mmcse_project.dpr">
       <MainSource>MainSource</MainSource>
     </DelphiCompile>
+    <DCCReference Include="M2100Command.pas" />
+    <DCCReference Include="M2100Message.pas" />
+    <DCCReference Include="M2100MessageDecoder.pas" />
     <DCCReference Include="M2100Switcher.pas" />
     <DCCReference Include="M2Pipe.pas" />
     <DCCReference Include="mmcse_common.pas" />

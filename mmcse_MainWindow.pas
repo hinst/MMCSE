@@ -5,6 +5,7 @@ unit mmcse_MainWindow;
 interface
 
 uses
+  Types,
   SysUtils,
   Classes,
 
@@ -30,6 +31,8 @@ type
     procedure SetLog(const aLog: TEmptyLog);
     procedure CreateThis;
     procedure AdjustInitialPosition;
+    procedure OnMouseWheelHandler(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
+      MousePos: TPoint; var Handled: Boolean);
     procedure DestroyThis;
   public
     property Log: TEmptyLog read fLog write SetLog;
@@ -70,6 +73,14 @@ begin
   ControlPanel.Align := alBottom;
   ControlPanel.Parent := self;
   {$ENDREGION}
+  OnMouseWheel := OnMouseWheelHandler;
+end;
+
+procedure TEmulatorMainForm.OnMouseWheelHandler(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  if LogPanel <> nil then
+    LogPanel.UserScroll(WheelDelta);
 end;
 
 procedure TEmulatorMainForm.AdjustInitialPosition;
@@ -93,7 +104,6 @@ end;
 
 destructor TEmulatorMainForm.Destroy;
 begin
-  Log.Write('Destroy...');
   DestroyThis;
   inherited Destroy;
 end;
