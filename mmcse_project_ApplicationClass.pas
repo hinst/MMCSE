@@ -85,7 +85,7 @@ procedure TMMCSEApplication.InitializeMainForm;
 begin
   Application.CreateForm(TEmulatorMainForm, fMainForm);
   MainForm.DoubleBuffered := true;
-  MainForm.ControlPanel.ConnectButton.OnClick := UserConnect; 
+  MainForm.ControlPanel.OnUserConnect := UserConnect;
 end;
 
 procedure TMMCSEApplication.ActualRun;
@@ -97,9 +97,13 @@ begin
   InitializeMainForm;
   Log.Write('>>>', 'Now running application...');
   Application.Run;
+
   Log.Write('|||', 'Now finalizing application...');
-  FreeAndNil(fMainForm);
+  MainForm.Enabled := false;
+    //< user can't initiate any actions during finalization routine
   FreeAndNil(fPipeConnector);
+  FreeAndNil(fSwitcher);
+  FreeAndNil(fMainForm);
   FinalizeLog;
 end;
 

@@ -19,8 +19,6 @@ interface
 uses
   SysUtils,
   Classes,
-  Contnrs,
-  SyncObjs,
 
   UAdditionalTypes,
   UAdditionalExceptions,
@@ -33,27 +31,12 @@ uses
 
 
   M2100Message,
+  M2100Keyer,
   M2100Command,
   M2100MessageDecoder,
   M2100MessageEncoder;
 
 type
-  TM2100Keyer = class
-  public
-    constructor Create;
-  private
-    fStatus: boolean;
-  public
-    property Status: boolean read fStatus write fStatus;
-  end;
-
-  TM2100KeyerList = class(TObjectList)
-  protected
-    function GetItem(const aIndex: integer): TM2100Keyer;
-  public
-    property Items[const aIndex: integer]: TM2100Keyer read GetItem; default;
-  end;
-
   TM2100Switcher = class
   public
     constructor Create;
@@ -64,19 +47,17 @@ type
     DefaultSendReceiveThreadWaitInterval = 1;
   private
     fLog: TEmptyLog;
-    fIncomingEvent: TSimpleEvent;
-    fKeyers: TM2100KeyerList;
+    fKeyers: TM2100KeyersStatus;
     fOnSendResponse: TSendResponceMethod;
     fAutomationStatus: boolean;
     procedure CreateThis;
     procedure AssignDefaults;
     procedure SetLog(const aLog: TEmptyLog);
     procedure InitializeKeyers;
-    function GetKeyersStatusAsByte: byte;
     function GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
     function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
     function DecodeMessage(const aMessage: TStream): TM2100Message;
-    function ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message; 
+    function ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message;
     function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
@@ -86,28 +67,17 @@ type
     procedure DestroyThis;
   public
     property Log: TEmptyLog read fLog write SetLog;
-    property IncomingEvent: TSimpleEvent read fIncomingEvent;
-    property Keyers: TM2100KeyerList read fKeyers;
+    property Keyers: TM2100KeyersStatus read fKeyers;
       // this propery should be assigned by the user of this class
     property OnSendResponse: TSendResponceMethod read fOnSendResponse write fOnSendResponse;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
-    property KeyersStatusAsByte: byte read GetKeyersStatusAsByte;
     property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
     procedure ProcessMessage(const aMessage: TStream);
     destructor Destroy; override;
   end;
 
+  
 implementation
-
-constructor TM2100Keyer.Create;
-begin
-  inherited Create;
-end;
-
-function TM2100KeyerList.GetItem(const aIndex: integer): TM2100Keyer;
-begin
-  result := inherited GetItem(aIndex) as TM2100Keyer;
-end;
 
 constructor TM2100Switcher.Create;
 begin
@@ -118,23 +88,14 @@ end;
 procedure TM2100Switcher.CreateThis;
 begin
   fLog := TEmptyLog.Create;
-  fIncomingEvent := TSimpleEvent.Create(nil, false, false, '', false);
   InitializeKeyers;
   AssignDefaults;
 end;
 
 procedure TM2100Switcher.InitializeKeyers;
-var
-  i: integer;
-  keyer: TM2100Keyer;
 begin
-  fKeyers := TM2100KeyerList.Create(true);
-  for i := 1 to 4 do
-  begin
-    keyer := TM2100Keyer.Create;
-    keyer.Status := true;
-    Keyers.Add(keyer);
-  end;
+  fKeyers := TM2100KeyersStatus.Create;
+  Keyers.SetDefault;
 end;
 
 procedure TM2100Switcher.AssignDefaults;
@@ -145,19 +106,6 @@ end;
 procedure TM2100Switcher.SetLog(const aLog: TEmptyLog);
 begin
   ReplaceLog(fLog, aLog);
-end;
-
-function TM2100Switcher.GetKeyersStatusAsByte: byte;
-begin
-  result := 0;
-  if keyers[0].Status then
-    result := result or (1 shl 0);
-  if keyers[1].Status then
-    result := result or (1 shl 1);
-  if keyers[2].Status then
-    result := result or (1 shl 2);
-  if keyers[3].Status then
-    result := result or (1 shl 3);
 end;
 
 function TM2100Switcher.GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
@@ -369,7 +317,7 @@ begin
   {$ENDIF}
   result := nil;
   if aSubCommand is TM2100SubCommandKeyStat then
-    result := TM2100SubCommandKeyStatAnswer.Create(KeyersStatusAsByte);
+    result := TM2100SubCommandKeyStatAnswer.Create(Keyers.AsByte);
   if aSubCommand is TM2100SubCommandAutoStat then
     result := TM2100SubCommandAutoStatAnswer.Create(true);
 end;

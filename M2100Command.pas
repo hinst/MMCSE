@@ -2,6 +2,7 @@ unit M2100Command;
 
 { $DEFINE DEBUG_INCLUDE_HEXREP_XPT_TAKE_BUS}
 { $DEFINE INCLUDE_SUBCOMMAND_CLASSNAME_TR}
+{ $DEFINE INCLUDE_COMMAND_CLASS_HEXREPRESENTATION}
 
 interface
 
@@ -10,24 +11,30 @@ uses
   Classes,
   Contnrs,
 
-  UStreamUtilities;
+  UStreamUtilities,
+
+  M2100Keyer;
 
 type
+  TM2100SubCommandClass = class of TM2100SubCommand;
+
   TM2100SubCommand = class
   public
     constructor Create(const aId: byte); virtual;
   public
     id: byte;
-    class function Construct(const aId: byte): TM2100SubCommand;
+    class function Construct(const aCommandClass, aCommandId: byte): TM2100SubCommand;
+    class function GetClass(const aCommandClass, aCommandId: byte): TM2100SubCommandClass;
     class function TX_TYPE: byte; // HEX 03
     class function XPT_TAKE: byte; // HEX 06
     class function OVER_SELECT: byte; // HEX 08
+    class function KEY_ENABLE: byte; // HEX 0B
     class function KEY_STAT: byte; // HEX OC
     class function AUTO_STAT: byte; // HEX 0D
     procedure LoadFromStream(const aStream: TStream); virtual; abstract;
     procedure SaveToStream(const aStream: TStream); virtual; abstract;
     function IdToText: string;
-    function IdToTextFull: string;
+    function IdToTextFull: string; virtual;
     function DataToText: string; virtual;
     function ToText: string; virtual;
   end;
@@ -40,6 +47,7 @@ type
   public
     property UnknownData: TStream read fUnknownData;
     procedure LoadFromStream(const aStream: TStream); override;
+    function IdToTextFull: string; override;
     function DataToText: string; override;
     destructor Destroy; override;
   end;
@@ -85,15 +93,38 @@ type
   end;
 
   // HEX 08
-  TM2100SubCommandOverSelect = class(TM2100SubCommand)
+  TM2100SubQueryOverSelect = class(TM2100SubCommand)
   protected
     fBus: word;
-    fOver: byte;
   public
     property Bus: word read fBus;
+    procedure LoadFromStream(const aStream: TStream); override;
+  end;
+
+  TM2100SubCommandOverSelect = class(TM2100SubQueryOverSelect)
+  protected
+    fOver: byte;
     property Over: byte read fOver;
     procedure LoadFromStream(const aStream: TStream); override;
     function DataToText: string; override;
+  end;
+
+  // HEX OB
+  TM2100SubQueryKeyEnable = class(TM2100SubCommand)
+  public
+    procedure LoadFromStream(const aStream: TStream); override;
+  end;
+
+  TM2100SubCommandKeyEnable = class(TM2100SubQueryKeyEnable)
+  public
+    constructor Create(const aId: byte); override;
+  protected
+    fKeyers: TM2100KeyersStatus;
+  public
+    property Keyers: TM2100KeyersStatus read fKeyers;
+    procedure LoadFromStream(const aStream: TStream); override;
+    function DataToText: string; override;
+    destructor Destroy; override;
   end;
 
   // HEX OC
@@ -144,21 +175,42 @@ begin
   id := aId;
 end;
 
-class function TM2100SubCommand.Construct(const aId: byte): TM2100SubCommand;
+class function TM2100SubCommand.Construct(const aCommandClass, aCommandId: byte): TM2100SubCommand;
+var
+  resultClass: TM2100SubCommandClass;
 begin
-  result := nil;
-  if aId = TX_TYPE then
-    result := TM2100SubCommandTxType.Create(aId);
-  if aId = XPT_TAKE then
-    result := TM2100SubCommandXptTake.Create(aId);
-  if aId = OVER_SELECT then
-    result := TM2100SubCommandOverSelect.Create(aId);
-  if aId = KEY_STAT then
-    result := TM2100SubCommandKeyStat.Create(aId);
-  if aId = AUTO_STAT then
-    result := TM2100SubCommandAutoStat.Create(aId);
+  resultClass := GetClass(aCommandClass, aCommandId);
+  result := resultClass.Create(aCommandId);
+end;
+
+class function TM2100SubCommand.GetClass(const aCommandClass, aCommandId: byte)
+  : TM2100SubCommandClass;
+begin
+  result := TM2100SubCommandUnknown;
+  if aCommandId = TX_TYPE then
+    result := TM2100SubCommandTxType;
+  if aCommandId = XPT_TAKE then
+    result := TM2100SubCommandXptTake;
+  if aCommandId = OVER_SELECT then
+  begin
+    if aCommandClass = M2100MessageCommandClass_QUERY then
+      result := TM2100SubQueryOverSelect;
+    if aCommandClass = M2100MessageCommandClass_CMD then
+      result := TM2100SubCommandOverSelect;
+  end;
+  if aCommandId = KEY_ENABLE then
+  begin
+    if aCommandClass = M2100MessageCommandClass_QUERY then
+      result := TM2100SubQueryKeyEnable;
+    if aCommandClass = M2100MessageCommandClass_CMD then
+      result := TM2100SubCommandKeyEnable;
+  end;
+  if aCommandId = KEY_STAT then
+    result := TM2100SubCommandKeyStat;
+  if aCommandId = AUTO_STAT then
+    result := TM2100SubCommandAutoStat;
   if result = nil then
-    result := TM2100SubCommandUnknown.Create(aId);
+    result := TM2100SubCommandUnknown;
 end;
 
 function TM2100SubCommand.IdToText: string;
@@ -170,6 +222,8 @@ begin
     result := 'XPT_TAKE';
   if id = OVER_SELECT then
     result := 'OVER_SELECT';
+  if id = KEY_ENABLE then
+    result := 'KEY_ENABLE';
   if id = KEY_STAT then
     result := 'KEY_STAT';
   if id = AUTO_STAT then
@@ -178,7 +232,7 @@ end;
 
 function TM2100SubCommand.IdToTextFull: string;
 begin
-  result := '$' + IntToHex(id, 2) + '''' + IdToText + '''';
+  result := IdToText;
 end;
 
 function TM2100SubCommand.DataToText: string;
@@ -217,6 +271,11 @@ begin
   result := $08;
 end;
 
+class function TM2100SubCommand.KEY_ENABLE: byte;
+begin
+  result := $0B;
+end;
+
 class function TM2100SubCommand.KEY_STAT: byte;
 begin
   result := $0C;
@@ -249,8 +308,10 @@ end;
 function TM2100Command.ToText: string;
 begin
   result := '(';
+  {$IFDEF INCLUDE_COMMAND_CLASS_HEXREPRESENTATION}
   result := result + '$' + IntToHex(CommandClass, 2);
-  result := result + '"' + CommandClassToText(CommandClass) + '"';
+  {$ENDIF}
+  result := result + '' + CommandClassToText(CommandClass) + '';
   result := result + ' |' + IntToStr(Length);
   if IsDoubleLength then
     result := result + '/'
@@ -299,6 +360,11 @@ begin
   inherited;
 end;
 
+
+function TM2100SubCommandUnknown.IdToTextFull: string;
+begin
+  result := '$' + IntToHex(id, 2);
+end;
 
 procedure TM2100SubCommandTxType.LoadFromStream(const aStream: TStream);
 begin
@@ -371,10 +437,17 @@ begin
   result := result + BusToText;
 end;
 
-procedure TM2100SubCommandOverSelect.LoadFromStream(const aStream: TStream);
+
+procedure TM2100SubQueryOverSelect.LoadFromStream(const aStream: TStream);
 begin
   aStream.ReadBuffer(fBus, 2);
   ReverseWord(fBus);
+end;
+
+
+procedure TM2100SubCommandOverSelect.LoadFromStream(const aStream: TStream);
+begin
+  inherited LoadFromStream(aStream);
   aStream.ReadBuffer(fOver, 1);
 end;
 
@@ -400,6 +473,40 @@ end;
 procedure TM2100SubCommandKeyStatAnswer.SaveToStream(const aStream: TStream);
 begin
   aStream.Write(fStatus, 1);
+end;
+
+
+procedure TM2100SubQueryKeyEnable.LoadFromStream(const aStream: TStream);
+begin
+  // no data
+end;
+
+
+constructor TM2100SubCommandKeyEnable.Create(const aId: byte);
+begin
+  inherited Create(aId);
+  fKeyers := TM2100KeyersStatus.Create;
+end;
+
+procedure TM2100SubCommandKeyEnable.LoadFromStream(const aStream: TStream);
+var
+  keyersStatus: byte;
+begin
+  inherited LoadFromStream(aStream);
+  aStream.ReadBuffer(keyersStatus, 1);
+  Keyers.AsByte := keyersStatus;
+end;
+
+
+function TM2100SubCommandKeyEnable.DataToText: string;
+begin
+  result := Keyers.ToText;
+end;
+
+destructor TM2100SubCommandKeyEnable.Destroy;
+begin
+  FreeAndNil(fKeyers);
+  inherited Destroy;
 end;
 
 
@@ -431,8 +538,6 @@ begin
   aStream.Write(statusByte, 1);
 end;
 
-
-{ TM2100SubCommandOverSelect }
 
 end.
 

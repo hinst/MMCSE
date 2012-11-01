@@ -13,13 +13,14 @@ uses
   EmptyLogEntity,
 
   UStreamUtilities,
+  UAdditionalTypes,
+  UAdditionalExceptions,
+
   M2100Command,
   M2100Message,
   mmcse_common;
 
 type
-
-  { TM2100MessageDecoder }
 
   EM2100MessageDecoder = class(EM2100Message);
 
@@ -163,13 +164,14 @@ end;
 function TM2100MessageDecoder.ReadSubCommand(const aId: byte; const aLeft: integer)
   : TM2100SubCommand;
 begin
-  result := TM2100SubCommand.Construct(aId);
+  result := TM2100SubCommand.Construct(LastCommand.CommandClass, aId);
   ReadSubCommand(result, aLeft);
 end;
 
 procedure TM2100MessageDecoder.ReadSubCommand(const aCommand: TM2100SubCommand;
   const aLeft: integer);
 begin
+  AssertAssigned(aCommand, 'aCommand', TVariableType.Argument);
   if aCommand is TM2100SubCommandUnknown then
     (aCommand as TM2100SubCommandUnknown).UnknownData.Size := aLeft;
   aCommand.LoadFromStream(Stream);

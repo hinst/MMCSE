@@ -134,11 +134,14 @@ begin
       end;
     end;
     if incomingMessage <> nil then
+    begin
       if @OnIncomingMessage <> nil then
       begin
         StreamRewind(incomingMessage);
         OnIncomingMessage(incomingMessage);
       end;
+      FreeAndNil(incomingMessage);
+    end;
   end;
   reader.Free;
 end;

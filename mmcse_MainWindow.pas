@@ -11,6 +11,7 @@ uses
 
   Controls,
   Forms,
+  Menus,
 
   EmptyLogEntity,
   DefaultLogEntity,
@@ -33,6 +34,7 @@ type
     procedure AdjustInitialPosition;
     procedure OnMouseWheelHandler(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
       MousePos: TPoint; var Handled: Boolean);
+    procedure OnUserAutoScrollHandler(aSender: TObject);
     procedure DestroyThis;
   public
     property Log: TEmptyLog read fLog write SetLog;
@@ -72,6 +74,8 @@ begin
   fControlPanel := TControlPanel.Create(self);
   ControlPanel.Align := alBottom;
   ControlPanel.Parent := self;
+  ControlPanel.OnUserAutoScroll := OnUserAutoScrollHandler; 
+  ControlPanel.AutoScrollMenuItem.Checked := LogPanel.AutoScroll;
   {$ENDREGION}
   OnMouseWheel := OnMouseWheelHandler;
 end;
@@ -88,6 +92,18 @@ begin
   Width := Screen.DesktopWidth div 3 * 2;
   Height := Screen.DesktopHeight div 3 * 2;
   Position := poDesktopCenter;
+end;
+
+procedure TEmulatorMainForm.OnUserAutoScrollHandler(aSender: TObject);
+var
+  item: TMenuItem;
+begin
+  if aSender is TMenuItem then
+  begin
+    item := aSender as TMenuItem;
+    LogPanel.AutoScroll := not LogPanel.AutoScroll;
+    item.Checked := LogPanel.AutoScroll;
+  end;
 end;
 
 procedure TEmulatorMainForm.DestroyThis;
