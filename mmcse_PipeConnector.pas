@@ -1,4 +1,9 @@
-unit mmcse_PipeConnector;
+﻿unit mmcse_PipeConnector;
+
+{ $DEFINE LOG_DEBUG_RECEIVE_ROUTINE}
+{$IFDEF LOG_DEBUG_RECEIVE_ROUTINE}
+  {$DEFINE LOG_DEBUG_RECEIVE_ROUTINE_HEARTBEAT}
+{$ENDIF}
 
 interface
 
@@ -49,6 +54,7 @@ type
       read fOnIncomingMessage write fOnIncomingMessage;
     procedure Startup;
     procedure SendMessage(const aStream: TStream);
+    procedure StopProcessingThread;
     destructor Destroy; override;
   end;
 
@@ -124,6 +130,9 @@ begin
   begin
     incomingMessage := nil;
     try
+      {$IFDEF LOG_DEBUG_RECEIVE_ROUTINE_HEARTBEAT}
+      Log.Write('Reading...');
+      {$ENDIF}
       incomingMessage := reader.Read(DefaultShutdownResponsiveness);
     except
       on e: Exception do
@@ -167,7 +176,7 @@ begin
   Thread.Resume;
 end;
 
-destructor TEmulationPipeConnector.Destroy;
+procedure TEmulationPipeConnector.StopProcessingThread;
 begin
   if Thread <> nil then
   begin
@@ -175,6 +184,11 @@ begin
     Thread.WaitFor;
     FreeAndNil(fThread);
   end;
+end;
+
+destructor TEmulationPipeConnector.Destroy;
+begin
+  StopProcessingThread;
   if Pipe <> nil then
     FreeAndNil(fPipe);
   if Log <> nil then

@@ -25,10 +25,12 @@ type
     fMenu: TPopupMenu;
     fConnectMenuItem: TMenuItem;
     fAutoScrollMenuItem: TMenuItem;
+    fDisconnectMenuItem: TMenuItem;
     fControlsCreated: boolean;
     procedure SetParent(aParent: TWinControl); override;
     procedure SetOnUserConnect(const aValue: TNotifyEvent);
     procedure SetOnUserAutoScroll(const aEvent: TNotifyEvent);
+    procedure SetOnUserDisconnect(const aEvent: TNotifyEvent);
     procedure CreateControls;
     procedure CreateMenuButton;
     procedure CreateMenu;
@@ -39,9 +41,11 @@ type
     property Menu: TPopupMenu read fMenu;
     property ConnectMenuItem: TMenuItem read fConnectMenuItem;
     property AutoScrollMenuItem: TMenuItem read fAutoScrollMenuItem;
+    property DisconnectMenuItem: TMenuItem read fDisconnectMenuItem;
     property ControlsCreated: boolean read fControlsCreated;
     property OnUserConnect: TNotifyEvent write SetOnUserConnect;
     property OnUserAutoScroll: TNotifyEvent write SetOnUserAutoScroll;
+    property OnUserDisconnect: TNotifyEvent write SetOnUserDisconnect;
   end;
 
 
@@ -63,6 +67,12 @@ procedure TControlPanel.SetOnUserAutoScroll(const aEvent: TNotifyEvent);
 begin
   AssertAssigned(AutoScrollMenuItem, 'AutoScrollMenuItem', TVariableType.Prop);
   AutoScrollMenuItem.OnClick := aEvent;
+end;
+
+procedure TControlPanel.SetOnUserDisconnect(const aEvent: TNotifyEvent);
+begin
+  AssertAssigned(DisconnectMenuItem, 'DisconnectMenuItem', TVariableType.Prop);
+  DisconnectMenuItem.OnClick := aEvent;
 end;
 
 procedure TControlPanel.SetParent(aParent: TWinControl);
@@ -107,6 +117,10 @@ begin
   fAutoScrollMenuItem := TMenuItem.Create(Menu);
   AutoScrollMenuItem.Caption := 'AutoScroll';
   Menu.Items.Add(AutoScrollMenuItem);
+  // DISCONNECT
+  fDisconnectMenuItem := TMenuItem.Create(Menu);
+  DisconnectMenuItem.Caption := 'Disconnect';
+  Menu.Items.Add(DisconnectMenuItem);
   // CLOSE
   closeMenuItem := TMenuItem.Create(Menu);
   closeMenuItem.Caption := 'Close this menu';

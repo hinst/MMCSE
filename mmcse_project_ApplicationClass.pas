@@ -1,4 +1,4 @@
-unit mmcse_project_ApplicationClass;
+﻿unit mmcse_project_ApplicationClass;
 
 interface
 
@@ -40,6 +40,8 @@ type
     procedure InitializeMainForm;
     procedure UserConnect(aSender: TObject);
     procedure OnConnectedHandler(aSender: TObject);
+    procedure Disconnect;
+    procedure UserDisconnect(aSender: TObject);
     procedure FinalizeLog;
   public
     property Log: TCustomLog read fLog;
@@ -86,6 +88,7 @@ begin
   Application.CreateForm(TEmulatorMainForm, fMainForm);
   MainForm.DoubleBuffered := true;
   MainForm.ControlPanel.OnUserConnect := UserConnect;
+  MainForm.ControlPanel.OnUserDisconnect := UserDisconnect;
 end;
 
 procedure TMMCSEApplication.ActualRun;
@@ -125,29 +128,50 @@ end;
 
 procedure TMMCSEApplication.UserConnect(aSender: TObject);
 begin
-  if PipeConnector <> nil then
-    FreeAndNil(fPipeConnector);
+  Disconnect;
+  if Switcher = nil then
+  begin
+    Log.Write('Now creating switcher...');
+    fSwitcher := TM2100Switcher.Create;
+    Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
+  end;
   if fPipeConnector = nil then
   begin
+    Log.Write('Now connecting...');
     fPipeConnector := TEmulationPipeConnector.Create;
     PipeConnector.Log := TLog.Create(GlobalLogManager, 'PipeConnector');
     PipeConnector.PipeName := DefaultPipeName;
     PipeConnector.OnConnected := OnConnectedHandler;
+    PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
+    Switcher.OnSendResponse := PipeConnector.SendMessage;
     PipeConnector.Startup;
   end;
 end;
 
 procedure TMMCSEApplication.OnConnectedHandler(aSender: TObject);
-var
-  connector: TEmulationPipeConnector;
 begin
-  fSwitcher := TM2100Switcher.Create;
-  Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
-  AssertAssigned(aSender, 'aSender', TVariableType.Argument);
-  connector := aSender as TEmulationPipeConnector;
+  // no routine
+end;
 
-  connector.OnIncomingMessage := Switcher.ProcessMessage;
-  Switcher.OnSendResponse := connector.SendMessage;
+procedure TMMCSEApplication.Disconnect;
+begin
+  if PipeConnector = nil then
+    exit;
+  PipeConnector.StopProcessingThread;
+  if (Switcher <> nil) then
+    Switcher.OnSendResponse := nil;
+  //< It's almost certain that in case Switcher's OnSendResponse property is assigned, ...
+  //... it contains a pointer to the current PipeConnector's SendMessage method.
+  PipeConnector.OnIncomingMessage := nil; //< unnecessary
+  FreeAndNil(fPipeConnector);
+end;
+
+procedure TMMCSEApplication.UserDisconnect(aSender: TObject);
+begin
+  if PipeConnector = nil then
+    Log.Write('Cannot disconnect: not connected. (PipeConnector unassigned)')
+  else
+    Disconnect;
 end;
 
 procedure TMMCSEApplication.FinalizeLog;

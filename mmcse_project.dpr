@@ -1,4 +1,4 @@
-program mmcse_project;
+﻿program mmcse_project;
 
 {$APPTYPE CONSOLE}
 
@@ -21,7 +21,8 @@ uses
   mmcse_ControlPanel in 'mmcse_ControlPanel.pas',
   M2100Command in 'M2100Command.pas',
   M2100Message in 'M2100Message.pas',
-  M2100MessageDecoder in 'M2100MessageDecoder.pas';
+  M2100MessageDecoder in 'M2100MessageDecoder.pas',
+  M2100Keyer in 'M2100Keyer.pas';
 
 var
   application: TMMCSEApplication;

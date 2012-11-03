@@ -213,7 +213,7 @@ begin
   {$ENDIF}
   {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENGING}
   StreamRewind(stream);
-  Log.Write('Now sending message ' + StreamToText(stream));
+  Log.Write('send message', 'Now sending message ' + StreamToText(stream));
   {$ENDIF}
   SafeSendMessage(stream);
   stream.Free;
@@ -247,7 +247,7 @@ begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
   if not LoggingSuppressed[aMessage] then
-    Log.Write('Now processing message:..' + sLineBreak + '  ' + aMessage.ToText);
+    Log.Write('process message', 'Now processing message:..' + sLineBreak + '  ' + aMessage.ToText);
   {$ENDIF}
   if aMessage.IsAcknowledged then
   begin

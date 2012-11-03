@@ -11,9 +11,15 @@ uses
   Classes,
   Contnrs,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
   UStreamUtilities,
 
-  M2100Keyer;
+  EmptyLogEntity,
+  DefaultLogEntity,
+
+  M2100Keyer,
+  mmcse_common;
 
 type
   TM2100SubCommandClass = class of TM2100SubCommand;
@@ -21,8 +27,14 @@ type
   TM2100SubCommand = class
   public
     constructor Create(const aId: byte); virtual;
+  protected
+    fId: byte;
+    fLog: TEmptyLog;
+    function GetLog: TEmptyLog;
   public
-    id: byte;
+    property Id: byte read fId;
+      // log entity: create automatically on demand
+    property Log: TEmptyLog read GetLog;
     class function Construct(const aCommandClass, aCommandId: byte): TM2100SubCommand;
     class function GetClass(const aCommandClass, aCommandId: byte): TM2100SubCommandClass;
     class function TX_TYPE: byte; // HEX 03
@@ -37,6 +49,7 @@ type
     function IdToTextFull: string; virtual;
     function DataToText: string; virtual;
     function ToText: string; virtual;
+    destructor Destroy; override;
   end;
 
   TM2100SubCommandUnknown = class(TM2100SubCommand)
@@ -65,6 +78,18 @@ type
     function SubCommandsToText: string;
     function ToText: string; overload;
     destructor Destroy; override;
+  end;
+
+  // HEX 01
+  TM2100QueryTxNext = class(TM2100SubCommand)
+  public
+    procedure LoadFromStream(const aStream: TStream); override;
+  end;
+
+  // The same format goes for the reply
+  TM2100CommandTxNext = class(TM2100QueryTxNext)
+  public
+    procedure LoadFromStream(const aStream: TStream); override;
   end;
 
   // HEX 03
@@ -172,7 +197,7 @@ implementation
 constructor TM2100SubCommand.Create(const aId: byte);
 begin
   inherited Create;
-  id := aId;
+  fId := aId;
 end;
 
 class function TM2100SubCommand.Construct(const aCommandClass, aCommandId: byte): TM2100SubCommand;
@@ -213,6 +238,13 @@ begin
     result := TM2100SubCommandUnknown;
 end;
 
+function TM2100SubCommand.GetLog: TEmptyLog;
+begin
+  if fLog = nil then
+    fLog := TLog.Create(GlobalLogManager, ClassName);
+  result := fLog;
+end;
+
 function TM2100SubCommand.IdToText: string;
 begin
   result := 'UNKNOWN';
@@ -245,7 +277,6 @@ var
   dataAsText: string;
 begin
   dataAsText := DataToText;
-
   result := '[';
   {$IFDEF INCLUDE_SUBCOMMAND_CLASSNAME_TR}
   result := result + ClassName + ' ';
@@ -286,6 +317,12 @@ begin
   result := $0D;
 end;
 
+destructor TM2100SubCommand.Destroy;
+begin
+  FreeAndNil(fLog);
+  inherited Destroy;
+end;
+
 constructor TM2100Command.Create;
 begin
   inherited Create;
@@ -305,6 +342,15 @@ begin
     result := 'SUBSCRIPTION|ACK';
 end;
 
+function TM2100Command.SubCommandsToText: string;
+var
+  i: integer;
+begin
+  result := '';
+  for i := 0 to SubCommands.Count - 1 do
+    result := result + (SubCommands[i] as TM2100SubCommand).ToText;
+end;
+
 function TM2100Command.ToText: string;
 begin
   result := '(';
@@ -317,7 +363,7 @@ begin
     result := result + '/'
   else
     result := result + '|';
-  result := result + ' ' + SubCommandsToText;  
+  result := result + ' ' + SubCommandsToText;
   result := result + ')';
 end;
 
@@ -327,13 +373,15 @@ begin
   inherited Destroy;
 end;
 
-function TM2100Command.SubCommandsToText: string;
-var
-  i: integer;
+
+procedure TM2100QueryTxNext.LoadFromStream(const aStream: TStream);
 begin
-  result := '';
-  for i := 0 to SubCommands.Count - 1 do
-    result := result + (SubCommands[i] as TM2100SubCommand).ToText;
+   // query: no additional data.
+end;
+
+procedure TM2100CommandTxNext.LoadFromStream(const aStream: TStream);
+begin
+  inherited LoadFromStream(aStream);
 end;
 
 constructor TM2100SubCommandUnknown.Create(const aId: byte);
@@ -494,9 +542,10 @@ var
 begin
   inherited LoadFromStream(aStream);
   aStream.ReadBuffer(keyersStatus, 1);
+  Log.Write('DEBUG', '$' + IntToHex(keyersStatus, 2));
+  AssertAssigned(Keyers, 'Keyers', TVariableType.Prop);
   Keyers.AsByte := keyersStatus;
 end;
-
 
 function TM2100SubCommandKeyEnable.DataToText: string;
 begin
