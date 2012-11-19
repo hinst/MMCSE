@@ -5,7 +5,7 @@ unit M2100Switcher;
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
 { $DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
 
-{$DEFINE LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
+{$DEFINE LOG_ATTACH_POLLING_TAG}
   //< affects
   // LOG_MESSAGE_CONTENT_BEFORE_PROCESSING
   // and
@@ -25,6 +25,7 @@ uses
   UCustomThread,
   UStreamUtilities,
   ExceptionTracer,
+  UTextUtilities,
 
   CustomLogEntity,
   EmptyLogEntity,
@@ -54,7 +55,8 @@ type
     procedure AssignDefaults;
     procedure SetLog(const aLog: TEmptyLog);
     procedure InitializeKeyers;
-    function GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
+    function MessageLogTags(const aMessage: TM2100Message): string;
+    function IsAutoStatPolling(const aMessage: TM2100Message): boolean;
     function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
     function DecodeMessage(const aMessage: TStream): TM2100Message;
     function ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message;
@@ -71,7 +73,6 @@ type
       // this propery should be assigned by the user of this class
     property OnSendResponse: TSendResponceMethod read fOnSendResponse write fOnSendResponse;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
-    property LoggingSuppressed[const aMessage: TM2100Message]: boolean read GetLoggingSuppressed;
     procedure ProcessMessage(const aMessage: TStream);
     destructor Destroy; override;
   end;
@@ -108,30 +109,26 @@ begin
   ReplaceLog(fLog, aLog);
 end;
 
-function TM2100Switcher.GetLoggingSuppressed(const aMessage: TM2100Message): boolean;
-
-  function IsAutoStatPolling: boolean;
-  var
-    command: TM2100Command;
-  begin
-    result := aMessage.Commands.Count = 1;
-    if not result  then
-      exit;
-    command := (aMessage.Commands[0] as TM2100Command);
-    result := result and (command.SubCommands.Count = 1);
-    if not result then
-      exit;
-    result := result
-      and (command.SubCommands[0] is TM2100SubCommandAutoStat)
-      or (command.SubCommands[0] is TM2100SubCommandAutoStatAnswer);
-  end;
-  
+function TM2100Switcher.MessageLogTags(const aMessage: TM2100Message): string;
 begin
-  result := false
-  {$IFDEF LOG_SUPPRESS_INFO_ON_AUTO_STAT_POLLING}
-    or IsAutoStatPolling
-  {$ENDIF}
-  ;
+  if IsAutoStatPolling(aMessage) then
+    result := 'Polling';
+end;
+
+function TM2100Switcher.IsAutoStatPolling(const aMessage: TM2100Message): boolean;
+var
+  command: TM2100Command;
+begin
+  result := aMessage.Commands.Count = 1;
+  if not result  then
+    exit;
+  command := (aMessage.Commands[0] as TM2100Command);
+  result := result and (command.SubCommands.Count = 1);
+  if not result then
+    exit;
+  result := result
+    and (command.SubCommands[0] is TM2100SubCommandAutoStat)
+    or (command.SubCommands[0] is TM2100SubCommandAutoStatAnswer);
 end;
 
 function TM2100Switcher.DecodeMessage(const aMessage: TStream): TM2100Message;
@@ -208,8 +205,10 @@ begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   stream := TM2100MessageEncoder.Encode(aMessage);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING}
-  if not LoggingSuppressed[aMessage] then
-    Log.Write('Now sending message...' + sLineBreak + '  ' + aMessage.ToText);
+  Log.Write(
+    SpacedStrings(['Sending', MessageLogTags(aMessage)]),
+    aMessage.ToText
+  );
   {$ENDIF}
   {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENGING}
   StreamRewind(stream);
@@ -246,8 +245,10 @@ function TM2100Switcher.ProcessDecodedMessage(const aMessage: TM2100Message): TM
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
-  if not LoggingSuppressed[aMessage] then
-    Log.Write('process message', 'Now processing message:..' + sLineBreak + '  ' + aMessage.ToText);
+  Log.Write(
+    SpacedStrings([ 'Processing', MessageLogTags(aMessage) ]),
+    'Now processing message:..' + sLineBreak + '  ' + aMessage.ToText
+  );
   {$ENDIF}
   if aMessage.IsAcknowledged then
   begin

@@ -1,4 +1,4 @@
-﻿unit mmcse_project_ApplicationClass;
+﻿unit mmcse_Application;
 
 interface
 
@@ -10,6 +10,7 @@ uses
   UAdditionalTypes,
   UAdditionalExceptions,
   ExceptionTracer,
+  UVCL,
 
   CustomLogManager,
   PlainLogManager,
@@ -18,6 +19,7 @@ uses
   CustomLogWriter,
   ConsoleLogWriter,
   FileLogWriter,
+  ULogFileModels,
   LogMemoryStorage,
 
   mmcse_common,
@@ -74,19 +76,16 @@ var
 begin
   FLogManager := TPlainLogManager.Create;
 
-  consoleLogWriter := TConsoleLogWriter.Create;
-  LogManager.AddWriter(consoleLogWriter);
-
   FLogMemory := TLogMemoryStorage.Create;
   LogManager.AddWriter(LogMemory);
 
+  consoleLogWriter := TConsoleLogWriter.Create;
+  LogManager.AddWriter(consoleLogWriter);
+
   GlobalLogManager := LogManager;
   FLog := TLog.Create(LogManager, 'Application');
-  
-  fileLogWriter := TFileLogWriter.Create;
-  fileLogWriter.SetDefaultFilePath;
-  Log.Write('Log file: "' + fileLogWriter.FilePath + '"');
-  LogManager.AddWriter(fileLogWriter);
+
+  TLogFileModels.ApplyLocal10Model(GlobalLogManager);
 end;
 
 procedure TMMCSEApplication.InitializeMainForm;
@@ -151,7 +150,7 @@ begin
     PipeConnector.PipeName := DefaultPipeName;
     PipeConnector.OnConnected := OnConnectedHandler;
     PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
-    Switcher.OnSendResponse := PipeConnector.SendMessage;
+    Switcher.OnSendResponse := PipeConnector.SendMessageMethod;
     PipeConnector.Startup;
   end;
 end;
@@ -166,10 +165,11 @@ begin
   if PipeConnector = nil then
     exit;
   PipeConnector.StopProcessingThread;
-  if (Switcher <> nil) then
+  if
+    (Switcher <> nil)
+    and MethodsEqual(TMethod(Switcher.OnSendResponse), TMethod(PipeConnector.SendMessageMethod))
+  then
     Switcher.OnSendResponse := nil;
-  //< It's almost certain that in case Switcher's OnSendResponse property is assigned, ...
-  //... it contains a pointer to the current PipeConnector's SendMessage method.
   PipeConnector.OnIncomingMessage := nil; //< unnecessary
   FreeAndNil(FPipeConnector);
 end;
@@ -179,7 +179,20 @@ begin
   if PipeConnector = nil then
     Log.Write('Cannot disconnect: not connected. (PipeConnector unassigned)')
   else
-    Disconnect;
+  begin
+    try
+      Disconnect;
+      Log.Write('Disconnected.');
+    except
+      on e: Exception do
+      begin
+        Log.Write(
+          'ERROR', 'User command: disconnect. Could not disconnect: exception occured:'
+          + sLineBreak + GetExceptionInfo(e));
+        AssertSuppressable(e);
+      end;
+    end;
+  end;
 end;
 
 procedure TMMCSEApplication.FinalizeLog;

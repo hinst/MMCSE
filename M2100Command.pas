@@ -198,7 +198,7 @@ type
 
   TM2100SubCommandAutoStatAnswer = class(TM2100SubCommand)
   public
-    constructor Create(const aStatus: boolean);
+    constructor Create(const aStatus: boolean); reintroduce;
   private
     fStatus: boolean;
   public
@@ -278,7 +278,11 @@ end;
 
 function TM2100SubCommand.IdToText: string;
 begin
-  result := 'UNKNOWN';
+  result := '';
+  if id = TX_NEXT then
+    result := 'TX_NEXT';
+  if id = TX_START then
+    result := 'TX_START';
   if id = TX_TYPE then
     result := 'TX_TYPE';
   if id = XPT_TAKE then
@@ -296,6 +300,8 @@ end;
 function TM2100SubCommand.IdToTextFull: string;
 begin
   result := IdToText;
+  if result = '' then
+    result := 'UNKNOWN_$' + IntToHex(id, 2);
 end;
 
 function TM2100SubCommand.DataToText: string;

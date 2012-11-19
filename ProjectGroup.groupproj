@@ -5,6 +5,7 @@
   <ItemGroup />
   <ItemGroup>
     <Projects Include="..\LogLibraryForDelphi\LogLibrary4Delphi.dproj" />
+    <Projects Include="..\LogLibraryForDelphi\LogViewer\LogViewer.dproj" />
     <Projects Include="..\MCS\Emulator\ProjectEmulator\Emulator.dproj" />
     <Projects Include="..\UnitsForDelphi\Units4Delphi.dproj" />
     <Projects Include="mmcse_project.dproj" />
@@ -51,14 +52,23 @@
   <Target Name="Units4Delphi:Make">
     <MSBuild Projects="..\UnitsForDelphi\Units4Delphi.dproj" Targets="Make" />
   </Target>
+  <Target Name="LogViewer">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogViewer\LogViewer.dproj" Targets="" />
+  </Target>
+  <Target Name="LogViewer:Clean">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogViewer\LogViewer.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="LogViewer:Make">
+    <MSBuild Projects="..\LogLibraryForDelphi\LogViewer\LogViewer.dproj" Targets="Make" />
+  </Target>
   <Target Name="Build">
-    <CallTarget Targets="mmcse_project;Emulator;LogLibrary4Delphi;Units4Delphi" />
+    <CallTarget Targets="mmcse_project;Emulator;LogLibrary4Delphi;Units4Delphi;LogViewer" />
   </Target>
   <Target Name="Clean">
-    <CallTarget Targets="mmcse_project:Clean;Emulator:Clean;LogLibrary4Delphi:Clean;Units4Delphi:Clean" />
+    <CallTarget Targets="mmcse_project:Clean;Emulator:Clean;LogLibrary4Delphi:Clean;Units4Delphi:Clean;LogViewer:Clean" />
   </Target>
   <Target Name="Make">
-    <CallTarget Targets="mmcse_project:Make;Emulator:Make;LogLibrary4Delphi:Make;Units4Delphi:Make" />
+    <CallTarget Targets="mmcse_project:Make;Emulator:Make;LogLibrary4Delphi:Make;Units4Delphi:Make;LogViewer:Make" />
   </Target>
   <Import Condition="Exists('$(MSBuildBinPath)\Borland.Group.Targets')" Project="$(MSBuildBinPath)\Borland.Group.Targets" />
 </Project>

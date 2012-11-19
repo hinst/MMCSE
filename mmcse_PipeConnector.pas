@@ -31,7 +31,7 @@ type
     DefaultWaitForConnectionInterval: DWORD = 60 * 1000;
     DefaultShutdownResponsiveness: DWORD = 1000;
   public type
-    THandleIncomingMessageMethod = procedure(const aStream: TStream) of object;  
+    THandleIncomingMessageMethod = procedure(const aStream: TStream) of object;
   protected
     fLog: TEmptyLog;
     fPipeName: string;
@@ -40,6 +40,7 @@ type
     fOnConnected: TNotifyEvent;
     fOnIncomingMessage: THandleIncomingMessageMethod;
     procedure SetLog(const aLog: TEmptyLog);
+    function GetSendMessageMethod: THandleIncomingMessageMethod;
     procedure Routine(const aThread: TCustomThread);
     function ConnectRoutine(const aThread: TCustomThread): boolean;
     procedure ReceiveRoutine(const aThread: TCustomThread);
@@ -52,6 +53,7 @@ type
     property OnConnected: TNotifyEvent read fOnConnected write fOnConnected;
     property OnIncomingMessage: THandleIncomingMessageMethod 
       read fOnIncomingMessage write fOnIncomingMessage;
+    property SendMessageMethod: THandleIncomingMessageMethod read GetSendMessageMethod;
     procedure Startup;
     procedure SendMessage(const aStream: TStream);
     procedure StopProcessingThread;
@@ -165,6 +167,11 @@ begin
   ReplaceLog(fLog, aLog);
 end;
 
+function TEmulationPipeConnector.GetSendMessageMethod: THandleIncomingMessageMethod;
+begin
+  result := SendMessage;
+end;
+
 procedure TEmulationPipeConnector.Startup;
 begin
   Log.Write('Now creating pipe "' + PipeName + '"...');
@@ -195,5 +202,6 @@ begin
     FreeAndNil(fLog);
   inherited Destroy;
 end;
+
 
 end.

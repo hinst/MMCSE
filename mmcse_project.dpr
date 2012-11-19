@@ -17,7 +17,7 @@ uses
   M2100Switcher in 'M2100Switcher.pas',
   M2Pipe in 'M2Pipe.pas',
   mmcse_PipeConnector in 'mmcse_PipeConnector.pas',
-  mmcse_project_ApplicationClass in 'mmcse_project_ApplicationClass.pas',
+  mmcse_Application in 'mmcse_Application.pas',
   mmcse_ControlPanel in 'mmcse_ControlPanel.pas',
   M2100Command in 'M2100Command.pas',
   M2100Message in 'M2100Message.pas',
