@@ -9,7 +9,7 @@ uses
 
   EmptyLogEntity,
 
-  WindowsPipes,
+  UWindowsPipes,
   UWindowsOverlappedEvent;
 
 const

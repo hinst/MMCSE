@@ -8,88 +8,84 @@ uses
 
   UMath,
   UTextUtilities,
-  UAdditionalExceptions;
+  UAdditionalExceptions,
+  UAdvancedByte;
 
 type
-  TM2100KeyersStatus = class
+  TM2100KeyersStatus = class(TByte)
   public const
-    COUNT = 5;
+    Count = 5;
     Keyer1 = 0;
     Keyer2 = 1;
     Keyer3 = 2;
     Keyer4 = 3;
     SqueezeBack = 4;
   protected
-    fKeyers: byte;
-    function GetKeyer(const aIndex: integer): boolean;
-    procedure SetKeyer(const aIndex: integer; const aStatus: boolean);
-    function GetCountOfEnabled: byte;
-    procedure AssertKeyerIndex(const aIndex: integer);
+    function GetBitName(const aIndex: integer): string; override;
+    function GetCountOfBits: integer; override;
   public
     procedure SetDefault;
-    property AsByte: byte read fKeyers write fKeyers;
-    property Keyers[const aIndex: integer]: boolean read GetKeyer write SetKeyer;
-    property CountOfEnabled: byte read GEtCountOfEnabled;
-    function ToText: string;
+  end;
+
+  TM2100TriggerMod = class(TByte)
+  public const
+    Count = 4;
+    StartVideo = 0;
+    StartAudio = 1;
+    InhibitStartRelays = 2;
+    ZeroPreroll = 3;
+  protected
+    function GetBitName(const aIndex: integer): string; override;
+    function GetCountOfBits: integer; override;
   end;
 
 
 implementation
 
-function TM2100KeyersStatus.GetKeyer(const aIndex: integer): boolean;
+function TM2100KeyersStatus.GetBitName(const aIndex: integer): string;
 begin
-  AssertKeyerIndex(aIndex);
-  result := GetBit(fKeyers, aIndex);
+  case aIndex of
+    Keyer1: result := 'Keyer1';
+    Keyer2: result := 'Keyer2';
+    Keyer3: result := 'Keyer3';
+    Keyer4: result := 'Keyer4';
+    SqueezeBack: result := 'SqueezeBack';
+    else result := inherited GetBitName(aIndex);
+  end;
+end;
+
+function TM2100KeyersStatus.GetCountOfBits: integer;
+begin
+  result := COUNT;
 end;
 
 procedure TM2100KeyersStatus.SetDefault;
 begin
   // включены по умолчанию:
-  Keyers[Keyer1] := true;
-  Keyers[Keyer2] := true;
-  Keyers[Keyer3] := true;
-  Keyers[Keyer4] := true;
+  Bits[Keyer1] := true;
+  Bits[Keyer2] := true;
+  Bits[Keyer3] := true;
+  Bits[Keyer4] := true;
   // а этот выключен:
-  Keyers[SqueezeBack] := false;
+  Bits[SqueezeBack] := false;
 end;
 
-procedure TM2100KeyersStatus.SetKeyer(const aIndex: integer; const aStatus: boolean);
-begin
-  AssertKeyerIndex(aIndex);
-  SetBit(fKeyers, aIndex, aStatus);
-end;
 
-function TM2100KeyersStatus.GetCountOfEnabled: byte;
-var
-  i: integer;
+function TM2100TriggerMod.GetBitName(const aIndex: integer): string;
 begin
-  result := 0;
-  for i := 0 to COUNT - 1 do
-    if Keyers[i] then
-      result := result + 1;
-end;
-
-procedure TM2100KeyersStatus.AssertKeyerIndex(const aIndex: integer);
-begin
-  AssertIndex(0, aIndex, COUNT - 1);
-end;
-
-function TM2100KeyersStatus.ToText: string;
-var
-  i: integer;
-begin
-  if CountOfEnabled = 0 then
-    result := 'no keyers enabled'
-  else
-  begin
-    result := '';
-    for i := Keyer1 to Keyer4 do
-      if Keyers[i] then
-        result := result + 'Keyer ' + IntToStr(i) + ', ';
-    if Keyers[SqueezeBack] then
-      result := result + 'SqueezeBack';
-    ExcludeEnding(result, ', ');
+  case aIndex of
+    StartVideo: result := 'StartVideo';
+    StartAudio: result := 'StartAudio';
+    InhibitStartRelays: result := 'InhibitStartRelays';
+    ZeroPreroll: result := 'ZeroPreroll';
+    else result := inherited GetBitName(aIndex);
   end;
 end;
+
+function TM2100TriggerMod.GetCountOfBits: integer;
+begin
+  result := Count;
+end;
+
 
 end.

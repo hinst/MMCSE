@@ -3,6 +3,7 @@ unit M2100Command;
 { $DEFINE DEBUG_INCLUDE_HEXREP_XPT_TAKE_BUS}
 { $DEFINE INCLUDE_SUBCOMMAND_CLASSNAME_TR}
 { $DEFINE INCLUDE_COMMAND_CLASS_HEXREPRESENTATION}
+{ $DEFINE INCLUDE_COMMAND_LENGTH}
 
 interface
 
@@ -37,6 +38,8 @@ type
     property Log: TEmptyLog read GetLog;
     class function Construct(const aCommandClass, aCommandId: byte): TM2100SubCommand;
     class function GetClass(const aCommandClass, aCommandId: byte): TM2100SubCommandClass;
+    class function TX_NEXT: byte; // HEX 01
+    class function TX_START: byte; // HEX 02
     class function TX_TYPE: byte; // HEX 03
     class function XPT_TAKE: byte; // HEX 06
     class function OVER_SELECT: byte; // HEX 08
@@ -68,6 +71,8 @@ type
   TM2100Command = class
   public
     constructor Create; virtual;
+  protected
+    function LengthToText: string;
   public
     CommandClass: byte;
     IsDoubleLength: boolean;
@@ -81,15 +86,31 @@ type
   end;
 
   // HEX 01
-  TM2100QueryTxNext = class(TM2100SubCommand)
+  TM2100SubQueryTxNext = class(TM2100SubCommand)
   public
     procedure LoadFromStream(const aStream: TStream); override;
   end;
 
-  // The same format goes for the reply
-  TM2100CommandTxNext = class(TM2100QueryTxNext)
+  // The same format for the reply
+  TM2100SubCommandTxNext = class(TM2100SubQueryTxNext)
+  protected
+    fNextTrans: byte;
   public
+    property NextTrans: byte read fNextTrans;
     procedure LoadFromStream(const aStream: TStream); override;
+    function DataToText: string; override;
+  end;
+
+  // HEX 02
+  TM2100SubCommandTxStart = class(TM2100SubCommand)
+  public
+    constructor Create(const aId: byte); override;
+  protected
+    fTriggerMod: TM2100TriggerMod;
+  public
+    property TriggerMod: TM2100TriggerMod read fTriggerMod;
+    procedure LoadFromStream(const aStream: TStream); override;
+    destructor Destroy; override;
   end;
 
   // HEX 03
@@ -130,6 +151,7 @@ type
   protected
     fOver: byte;
     property Over: byte read fOver;
+  public
     procedure LoadFromStream(const aStream: TStream); override;
     function DataToText: string; override;
   end;
@@ -160,7 +182,7 @@ type
 
   TM2100SubCommandKeyStatAnswer = class(TM2100SubCommand)
   public
-    constructor Create(const aStatus: byte);
+    constructor Create(const aStatus: byte); override;
   private
     fStatus: byte;
   public
@@ -212,6 +234,15 @@ class function TM2100SubCommand.GetClass(const aCommandClass, aCommandId: byte)
   : TM2100SubCommandClass;
 begin
   result := TM2100SubCommandUnknown;
+  if aCommandId = TX_NEXT then
+  begin
+    if aCommandClass = M2100MessageCommandClass_QUERY then
+      result := TM2100SubQueryTxNext;
+    if aCommandClass = M2100MessageCommandClass_CMD then
+      result := TM2100SubCommandTxNext;
+  end;
+  if aCommandId = TX_START then
+    result := TM2100SubCommandTxStart;  
   if aCommandId = TX_TYPE then
     result := TM2100SubCommandTxType;
   if aCommandId = XPT_TAKE then
@@ -287,6 +318,16 @@ begin
   result := result + ']';
 end;
 
+class function TM2100SubCommand.TX_NEXT: byte;
+begin
+  result := $01;
+end;
+
+class function TM2100SubCommand.TX_START: byte;
+begin
+  result := $02;
+end;
+
 class function TM2100SubCommand.TX_TYPE: byte;
 begin
   result := $03;
@@ -323,10 +364,49 @@ begin
   inherited Destroy;
 end;
 
+constructor TM2100SubCommandUnknown.Create(const aId: byte);
+begin
+  inherited Create(aId);
+  fUnknownData := TMemoryStream.Create;
+end;
+
+procedure TM2100SubCommandUnknown.LoadFromStream(const aStream: TStream);
+begin
+  StreamRewind(UnknownData);
+  UnknownData.CopyFrom(aStream, UnknownData.Size);
+end;
+
+function TM2100SubCommandUnknown.IdToTextFull: string;
+begin
+  result := '$' + IntToHex(id, 2);
+end;
+
+function TM2100SubCommandUnknown.DataToText: string;
+begin
+  StreamRewind(UnknownData);
+  result := StreamToText(UnknownData);
+end;
+
+destructor TM2100SubCommandUnknown.Destroy;
+begin
+  FreeAndNil(fUnknownData);
+  inherited;
+end;
+
 constructor TM2100Command.Create;
 begin
   inherited Create;
   SubCommands := TObjectList.Create(true);
+end;
+
+function TM2100Command.LengthToText: string;
+begin
+  result := '';
+  result := result + '|' + IntToStr(Length);
+  if IsDoubleLength then
+    result := result + '/'
+  else
+    result := result + '|';
 end;
 
 class function TM2100Command.CommandClassToText(const aCommandClass: byte): string;
@@ -355,14 +435,12 @@ function TM2100Command.ToText: string;
 begin
   result := '(';
   {$IFDEF INCLUDE_COMMAND_CLASS_HEXREPRESENTATION}
-  result := result + '$' + IntToHex(CommandClass, 2);
+    result := result + '$' + IntToHex(CommandClass, 2);
   {$ENDIF}
   result := result + '' + CommandClassToText(CommandClass) + '';
-  result := result + ' |' + IntToStr(Length);
-  if IsDoubleLength then
-    result := result + '/'
-  else
-    result := result + '|';
+  {$IFDEF INCLUDE_COMMAND_LENGTH}
+    result := result + ' ' + LengthToText;
+  {$ENDIF}
   result := result + ' ' + SubCommandsToText;
   result := result + ')';
 end;
@@ -374,45 +452,40 @@ begin
 end;
 
 
-procedure TM2100QueryTxNext.LoadFromStream(const aStream: TStream);
+procedure TM2100SubQueryTxNext.LoadFromStream(const aStream: TStream);
 begin
    // query: no additional data.
 end;
 
-procedure TM2100CommandTxNext.LoadFromStream(const aStream: TStream);
+procedure TM2100SubCommandTxNext.LoadFromStream(const aStream: TStream);
 begin
   inherited LoadFromStream(aStream);
+  aStream.Read(fNextTrans, 1);
 end;
 
-constructor TM2100SubCommandUnknown.Create(const aId: byte);
+function TM2100SubCommandTxNext.DataToText: string;
+begin
+  result := 'NextTrans: ' + IntToStr(NextTrans);
+end;
+
+
+constructor TM2100SubCommandTxStart.Create(const aId: byte);
 begin
   inherited Create(aId);
-  fUnknownData := TMemoryStream.Create;
+  fTriggerMod := TM2100TriggerMod.Create(0);
 end;
 
-procedure TM2100SubCommandUnknown.LoadFromStream(const aStream: TStream);
+procedure TM2100SubCommandTxStart.LoadFromStream(const aStream: TStream);
 begin
-  StreamRewind(UnknownData);
-  UnknownData.CopyFrom(aStream, UnknownData.Size);
+  aStream.Read(TriggerMod.AccessValue^, 1);
 end;
 
-function TM2100SubCommandUnknown.DataToText: string;
+destructor TM2100SubCommandTxStart.Destroy;
 begin
-  StreamRewind(UnknownData);
-  result := StreamToText(UnknownData);
+  FreeAndNil(fTriggerMod);
+  inherited Destroy;
 end;
 
-destructor TM2100SubCommandUnknown.Destroy;
-begin
-  FreeAndNil(fUnknownData);
-  inherited;
-end;
-
-
-function TM2100SubCommandUnknown.IdToTextFull: string;
-begin
-  result := '$' + IntToHex(id, 2);
-end;
 
 procedure TM2100SubCommandTxType.LoadFromStream(const aStream: TStream);
 begin
@@ -533,7 +606,7 @@ end;
 constructor TM2100SubCommandKeyEnable.Create(const aId: byte);
 begin
   inherited Create(aId);
-  fKeyers := TM2100KeyersStatus.Create;
+  fKeyers := TM2100KeyersStatus.Create(0);
 end;
 
 procedure TM2100SubCommandKeyEnable.LoadFromStream(const aStream: TStream);
@@ -542,9 +615,9 @@ var
 begin
   inherited LoadFromStream(aStream);
   aStream.ReadBuffer(keyersStatus, 1);
-  Log.Write('DEBUG', '$' + IntToHex(keyersStatus, 2));
+  //Log.Write('DEBUG', '$' + IntToHex(keyersStatus, 2));
   AssertAssigned(Keyers, 'Keyers', TVariableType.Prop);
-  Keyers.AsByte := keyersStatus;
+  Keyers.Value := keyersStatus;
 end;
 
 function TM2100SubCommandKeyEnable.DataToText: string;

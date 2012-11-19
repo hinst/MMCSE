@@ -18,6 +18,7 @@ uses
   CustomLogWriter,
   ConsoleLogWriter,
   FileLogWriter,
+  LogMemoryStorage,
 
   mmcse_common,
   mmcse_MainWindow,
@@ -29,11 +30,12 @@ type
   public
     constructor Create;
   protected
-    fLog: TCustomLog;
-    fLogManager: TCustomLogManager;
-    fMainForm: TEmulatorMainForm;
-    fPipeConnector: TEmulationPipeConnector;
-    fSwitcher: TM2100Switcher;
+    FLog: TCustomLog;
+    FLogManager: TCustomLogManager;
+    FLogMemory: TLogMemoryStorage;
+    FMainForm: TEmulatorMainForm;
+    FPipeConnector: TEmulationPipeConnector;
+    FSwitcher: TM2100Switcher;
     procedure InitializeLog;
     procedure ActualRun;
     procedure SafeRun;
@@ -44,11 +46,12 @@ type
     procedure UserDisconnect(aSender: TObject);
     procedure FinalizeLog;
   public
-    property Log: TCustomLog read fLog;
-    property LogManager: TCustomLogManager read fLogManager;
-    property MainForm: TEmulatorMainForm read fMainForm;
-    property PipeConnector: TEmulationPipeConnector read fPipeConnector;
-    property Switcher: TM2100Switcher read fSwitcher;
+    property Log: TCustomLog read FLog;
+    property LogManager: TCustomLogManager read FLogManager;
+    property LogMemory: TLogMemoryStorage read FLogMemory;
+    property MainForm: TEmulatorMainForm read FMainForm;
+    property PipeConnector: TEmulationPipeConnector read FPipeConnector;
+    property Switcher: TM2100Switcher read FSwitcher;
     procedure Run;
     destructor Destroy; override;
   end;
@@ -69,13 +72,16 @@ var
   consoleLogWriter: TCustomLogWriter;
   fileLogWriter: TFileLogWriter;
 begin
-  fLogManager := TPlainLogManager.Create;
+  FLogManager := TPlainLogManager.Create;
 
   consoleLogWriter := TConsoleLogWriter.Create;
   LogManager.AddWriter(consoleLogWriter);
 
+  FLogMemory := TLogMemoryStorage.Create;
+  LogManager.AddWriter(LogMemory);
+
   GlobalLogManager := LogManager;
-  fLog := TLog.Create(LogManager, 'Application');
+  FLog := TLog.Create(LogManager, 'Application');
   
   fileLogWriter := TFileLogWriter.Create;
   fileLogWriter.SetDefaultFilePath;
@@ -85,8 +91,10 @@ end;
 
 procedure TMMCSEApplication.InitializeMainForm;
 begin
-  Application.CreateForm(TEmulatorMainForm, fMainForm);
+  Application.CreateForm(TEmulatorMainForm, FMainForm);
   MainForm.DoubleBuffered := true;
+  MainForm.LogMemory := LogMemory;
+  MainForm.Startup;
   MainForm.ControlPanel.OnUserConnect := UserConnect;
   MainForm.ControlPanel.OnUserDisconnect := UserDisconnect;
 end;
@@ -104,9 +112,9 @@ begin
   Log.Write('|||', 'Now finalizing application...');
   MainForm.Enabled := false;
     //< user can't initiate any actions during finalization routine
-  FreeAndNil(fPipeConnector);
-  FreeAndNil(fSwitcher);
-  FreeAndNil(fMainForm);
+  FreeAndNil(FPipeConnector);
+  FreeAndNil(FSwitcher);
+  FreeAndNil(FMainForm);
   FinalizeLog;
 end;
 
@@ -132,13 +140,13 @@ begin
   if Switcher = nil then
   begin
     Log.Write('Now creating switcher...');
-    fSwitcher := TM2100Switcher.Create;
+    FSwitcher := TM2100Switcher.Create;
     Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
   end;
-  if fPipeConnector = nil then
+  if FPipeConnector = nil then
   begin
     Log.Write('Now connecting...');
-    fPipeConnector := TEmulationPipeConnector.Create;
+    FPipeConnector := TEmulationPipeConnector.Create;
     PipeConnector.Log := TLog.Create(GlobalLogManager, 'PipeConnector');
     PipeConnector.PipeName := DefaultPipeName;
     PipeConnector.OnConnected := OnConnectedHandler;
@@ -163,7 +171,7 @@ begin
   //< It's almost certain that in case Switcher's OnSendResponse property is assigned, ...
   //... it contains a pointer to the current PipeConnector's SendMessage method.
   PipeConnector.OnIncomingMessage := nil; //< unnecessary
-  FreeAndNil(fPipeConnector);
+  FreeAndNil(FPipeConnector);
 end;
 
 procedure TMMCSEApplication.UserDisconnect(aSender: TObject);
@@ -177,9 +185,9 @@ end;
 procedure TMMCSEApplication.FinalizeLog;
 begin
   Log.Write('Now finalizing log...');
-  FreeAndNil(fLog);
+  FreeAndNil(FLog);
   GlobalLogManager := nil;
-  FreeAndNil(fLogManager);
+  FreeAndNil(FLogManager);
 end;
 
 procedure TMMCSEApplication.Run;

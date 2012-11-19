@@ -94,7 +94,7 @@ end;
 
 procedure TM2100Switcher.InitializeKeyers;
 begin
-  fKeyers := TM2100KeyersStatus.Create;
+  fKeyers := TM2100KeyersStatus.Create(0);
   Keyers.SetDefault;
 end;
 
@@ -317,7 +317,7 @@ begin
   {$ENDIF}
   result := nil;
   if aSubCommand is TM2100SubCommandKeyStat then
-    result := TM2100SubCommandKeyStatAnswer.Create(Keyers.AsByte);
+    result := TM2100SubCommandKeyStatAnswer.Create(Keyers.Value);
   if aSubCommand is TM2100SubCommandAutoStat then
     result := TM2100SubCommandAutoStatAnswer.Create(true);
 end;
