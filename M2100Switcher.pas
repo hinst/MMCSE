@@ -24,7 +24,7 @@ uses
   UAdditionalExceptions,
   UCustomThread,
   UStreamUtilities,
-  ExceptionTracer,
+  UExceptionTracer,
   UTextUtilities,
 
   CustomLogEntity,

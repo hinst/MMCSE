@@ -14,7 +14,7 @@ uses
 
   UCustomThread,
   UAdditionalExceptions,
-  ExceptionTracer,
+  UExceptionTracer,
   UStreamUtilities,
   UTextUtilities,
 

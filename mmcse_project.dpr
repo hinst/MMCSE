@@ -11,7 +11,7 @@ uses
   SysUtils,
   Classes,
   Forms,
-  ExceptionTracer,
+  UExceptionTracer,
   mmcse_common in 'mmcse_common.pas',
   mmcse_MainWindow in 'mmcse_MainWindow.pas',
   M2100Switcher in 'M2100Switcher.pas',

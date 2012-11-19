@@ -9,7 +9,7 @@ uses
 
   UAdditionalTypes,
   UAdditionalExceptions,
-  ExceptionTracer,
+  UExceptionTracer,
   UVCL,
 
   CustomLogManager,
