@@ -30,7 +30,7 @@ uses
   CustomLogEntity,
   EmptyLogEntity,
 
-
+  CustomSwitcherUnit,
   M2100Message,
   M2100Keyer,
   M2100Command,
@@ -38,28 +38,22 @@ uses
   M2100MessageEncoder;
 
 type
-  TM2100Switcher = class
+  TM2100Switcher = class(TCustomSwitcher)
   public
     constructor Create;
-  public type
-    TSendResponceMethod = procedure(const aResponce: TStream) of object;
-      // nil stream indicates that there is no message data available at the moment
+    procedure Startup;
   public const
     DefaultSendReceiveThreadWaitInterval = 1;
   private
-    fLog: TEmptyLog;
     fKeyers: TM2100KeyersStatus;
-    fOnSendResponse: TSendResponceMethod;
     fAutomationStatus: boolean;
-    procedure CreateThis;
     procedure AssignDefaults;
-    procedure SetLog(const aLog: TEmptyLog);
     procedure InitializeKeyers;
-    function MessageLogTags(const aMessage: TM2100Message): string;
+    function GetAdditionalMessageLogTags(const aMessage: TM2100Message): string;
     function IsAutoStatPolling(const aMessage: TM2100Message): boolean;
     function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
     function DecodeMessage(const aMessage: TStream): TM2100Message;
-    function ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message;
+    function ProcessReceivedMessage(const aMessage: TM2100Message): TM2100Message;
     function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
@@ -68,10 +62,8 @@ type
     procedure SafeSendMessage(const aMessage: TStream);
     procedure DestroyThis;
   public
-    property Log: TEmptyLog read fLog write SetLog;
     property Keyers: TM2100KeyersStatus read fKeyers;
       // this propery should be assigned by the user of this class
-    property OnSendResponse: TSendResponceMethod read fOnSendResponse write fOnSendResponse;
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     procedure ProcessMessage(const aMessage: TStream);
     destructor Destroy; override;
@@ -83,12 +75,10 @@ implementation
 constructor TM2100Switcher.Create;
 begin
   inherited Create;
-  CreateThis;
 end;
 
-procedure TM2100Switcher.CreateThis;
+procedure TM2100Switcher.Startup;
 begin
-  fLog := TEmptyLog.Create;
   InitializeKeyers;
   AssignDefaults;
 end;
@@ -104,12 +94,7 @@ begin
   AutomationStatus := true;
 end;
 
-procedure TM2100Switcher.SetLog(const aLog: TEmptyLog);
-begin
-  ReplaceLog(fLog, aLog);
-end;
-
-function TM2100Switcher.MessageLogTags(const aMessage: TM2100Message): string;
+function TM2100Switcher.GetAdditionalMessageLogTags(const aMessage: TM2100Message): string;
 begin
   if IsAutoStatPolling(aMessage) then
     result := 'Polling';
@@ -143,6 +128,7 @@ begin
     on e: Exception do
     begin
       try
+        StreamRewind(aMessage);
         data := StreamToText(aMessage);
       except
         data := 'undisplayable';
@@ -179,7 +165,7 @@ begin
     exit;
   end;
   try
-    result := ProcessDecodedMessage(aMessage);
+    result := ProcessReceivedMessage(aMessage);
   except
     on e: Exception do
     begin
@@ -206,7 +192,7 @@ begin
   stream := TM2100MessageEncoder.Encode(aMessage);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING}
   Log.Write(
-    SpacedStrings(['Sending', MessageLogTags(aMessage)]),
+    SpacedStrings(['Sending', GetAdditionalMessageLogTags(aMessage)]),
     aMessage.ToText
   );
   {$ENDIF}
@@ -222,9 +208,9 @@ procedure TM2100Switcher.SafeSendMessage(const aMessage: TStream);
 begin
   try
     AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-    AssertAssigned(@OnSendResponse, 'SendResponse', TVariableType.Prop);
+    AssertAssigned(@SendMessageMethod, 'SendResponse', TVariableType.Prop);
     StreamRewind(aMessage);
-    OnSendResponse(aMessage);
+    SendMessageMethod(aMessage);
   except
     on e: Exception do
     begin
@@ -241,12 +227,12 @@ begin
   end;
 end;
 
-function TM2100Switcher.ProcessDecodedMessage(const aMessage: TM2100Message): TM2100Message;
+function TM2100Switcher.ProcessReceivedMessage(const aMessage: TM2100Message): TM2100Message;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
   Log.Write(
-    SpacedStrings([ 'Processing', MessageLogTags(aMessage) ]),
+    SpacedStrings([ 'Processing', GetAdditionalMessageLogTags(aMessage) ]),
     'Now processing message:..' + sLineBreak + '  ' + aMessage.ToText
   );
   {$ENDIF}

@@ -8,6 +8,7 @@ uses
   madListHardware,
   madListProcesses,
   madListModules,
+  Windows,
   SysUtils,
   Classes,
   Forms,
@@ -22,7 +23,8 @@ uses
   M2100Command in 'M2100Command.pas',
   M2100Message in 'M2100Message.pas',
   M2100MessageDecoder in 'M2100MessageDecoder.pas',
-  M2100Keyer in 'M2100Keyer.pas';
+  M2100Keyer in 'M2100Keyer.pas',
+  CustomSwitcherUnit in 'CustomSwitcherUnit.pas';
 
 var
   application: TMMCSEApplication;

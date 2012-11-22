@@ -48,6 +48,9 @@ type
     procedure AssertCheckSumCorrect;
     procedure LogDecoding(const aText: string);
     procedure ReplaceLog(const aLog: TCustomLog);
+    procedure SafeDecode;
+      // creates fMessage
+    procedure ActuallyDecode;
   public
       // owns the Log
     property Log: TCustomLog read fLog write ReplaceLog;
@@ -77,7 +80,6 @@ begin
   inherited Create;
   fLog := TEmptyLog.Create;
   fStream := aStream;
-  fMessage := TM2100Message.Create
 end;
 
 function TM2100MessageDecoder.ReadLength(out aDoubleLength: boolean): integer;
@@ -99,13 +101,6 @@ end;
 
 procedure TM2100MessageDecoder.Decode;
 begin
-  ReadSTX;
-  if Msg.IsAcknowledged then
-    exit;
-  ReadMessageLength;
-  ReadCommands;
-  ReadCheckSum;
-  AssertCheckSumCorrect;
 end;
 
 procedure TM2100MessageDecoder.ReadSTX;
@@ -181,6 +176,28 @@ procedure TM2100MessageDecoder.ReplaceLog(const aLog: TCustomLog);
 begin
   Log.Free;
   fLog := aLog;
+end;
+
+procedure TM2100MessageDecoder.SafeDecode;
+begin
+  try
+    ActuallyDecode;
+  except
+    TryFreeAndNil(fMessage);
+    raise;
+  end;
+end;
+
+procedure TM2100MessageDecoder.ActuallyDecode;
+begin
+  fMessage := TM2100Message.Create;
+  ReadSTX;
+  if Msg.IsAcknowledged then
+    exit;
+  ReadMessageLength;
+  ReadCommands;
+  ReadCheckSum;
+  AssertCheckSumCorrect;
 end;
 
 procedure TM2100MessageDecoder.ReadCheckSum;

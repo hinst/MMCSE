@@ -3,6 +3,7 @@
 interface
 
 uses
+  Windows,
   SysUtils,
   Classes,
   Forms,
@@ -141,6 +142,7 @@ begin
     Log.Write('Now creating switcher...');
     FSwitcher := TM2100Switcher.Create;
     Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
+    Switcher.Startup;
   end;
   if FPipeConnector = nil then
   begin
@@ -150,7 +152,7 @@ begin
     PipeConnector.PipeName := DefaultPipeName;
     PipeConnector.OnConnected := OnConnectedHandler;
     PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
-    Switcher.OnSendResponse := PipeConnector.SendMessageMethod;
+    Switcher.SendMessageMethod := PipeConnector.SendMessageMethod;
     PipeConnector.Startup;
   end;
 end;
@@ -167,9 +169,9 @@ begin
   PipeConnector.StopProcessingThread;
   if
     (Switcher <> nil)
-    and MethodsEqual(TMethod(Switcher.OnSendResponse), TMethod(PipeConnector.SendMessageMethod))
+    and MethodsEqual(TMethod(Switcher.SendMessageMethod), TMethod(PipeConnector.SendMessageMethod))
   then
-    Switcher.OnSendResponse := nil;
+    Switcher.SendMessageMethod := nil;
   PipeConnector.OnIncomingMessage := nil; //< unnecessary
   FreeAndNil(FPipeConnector);
 end;
