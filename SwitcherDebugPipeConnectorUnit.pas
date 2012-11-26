@@ -1,4 +1,4 @@
-﻿unit mmcse_PipeConnector;
+﻿unit SwitcherDebugPipeConnectorUnit;
 
 { $DEFINE LOG_DEBUG_RECEIVE_ROUTINE}
 {$IFDEF LOG_DEBUG_RECEIVE_ROUTINE}
@@ -21,7 +21,7 @@ uses
   CustomLogEntity,
   EmptyLogEntity,
 
-  M2Pipe;
+  MessageBiDirectionalPipeUnit;
 
 type
   TEmulationPipeConnector = class

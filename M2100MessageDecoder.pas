@@ -18,7 +18,7 @@ uses
 
   M2100Command,
   M2100Message,
-  mmcse_common;
+  CommonUnit;
 
 type
 

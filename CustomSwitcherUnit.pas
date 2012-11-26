@@ -4,6 +4,7 @@ interface
 
 uses
   SysUtils,
+  Classes,
 
   CustomLogEntity,
   EmptyLogEntity;
@@ -26,6 +27,8 @@ type
     destructor Destroy; override;
   end;
 
+  TCustomSwitcherClass = class of TCustomSwitcher;
+
 implementation
 
 constructor TCustomSwitcher.Create;
@@ -45,4 +48,6 @@ begin
   inherited Destroy;
 end;
 
+initialization
+finalization
 end.

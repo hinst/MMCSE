@@ -1,4 +1,4 @@
-unit mmcse_ControlPanel;
+unit ControlPanelUnit;
 
 interface
 
@@ -14,32 +14,38 @@ uses
   Forms,
 
   UAdditionalTypes,
-  UAdditionalExceptions;
+  UAdditionalExceptions,
+
+  SwitcherFactoryUnit;
 
 type
   TControlPanel = class(TFlowPanel)
   public
     constructor Create(aOwner: TComponent); override;
   protected
-    fMenuButton: TSpeedButton;
-    fMenu: TPopupMenu;
-    fConnectMenuItem: TMenuItem;
-    fDisconnectMenuItem: TMenuItem;
-    fControlsCreated: boolean;
+    FMenuButton: TSpeedButton;
+    FMenu: TPopupMenu;
+    FConnectMenuItem: TMenuItem;
+    FSwitcherMenuItem: TMenuItem;
+    FDisconnectMenuItem: TMenuItem;
+    FControlsCreated: boolean;
     procedure SetParent(aParent: TWinControl); override;
     procedure SetOnUserConnect(const aValue: TNotifyEvent);
     procedure SetOnUserDisconnect(const aEvent: TNotifyEvent);
     procedure CreateControls;
     procedure CreateMenuButton;
     procedure CreateMenu;
+    function CreateSwitcherMenu: TMenuItem;
+    procedure AttachSwitcherClassesMenu(const aMenuItem: TMenuItem);
     procedure CreateControlsIfNotCreated;
     procedure OnMenuButtonClickHandler(aSender: TObject);
   public
-    property MenuButton: TSpeedButton read fMenuButton;
-    property Menu: TPopupMenu read fMenu;
-    property ConnectMenuItem: TMenuItem read fConnectMenuItem;
-    property DisconnectMenuItem: TMenuItem read fDisconnectMenuItem;
-    property ControlsCreated: boolean read fControlsCreated;
+    property MenuButton: TSpeedButton read FMenuButton;
+    property Menu: TPopupMenu read FMenu;
+    property ConnectMenuItem: TMenuItem read FConnectMenuItem;
+    property SwitcherMenuItem: TMenuItem read FSwitcherMenuItem;
+    property DisconnectMenuItem: TMenuItem read FDisconnectMenuItem;
+    property ControlsCreated: boolean read FControlsCreated;
     property OnUserConnect: TNotifyEvent write SetOnUserConnect;
     property OnUserDisconnect: TNotifyEvent write SetOnUserDisconnect;
   end;
@@ -50,7 +56,7 @@ implementation
 constructor TControlPanel.Create(aOwner: TComponent);
 begin
   inherited Create(aOwner);
-  fControlsCreated := false;
+  FControlsCreated := false;
 end;
 
 procedure TControlPanel.SetOnUserConnect(const aValue: TNotifyEvent);
@@ -81,7 +87,7 @@ end;
 
 procedure TControlPanel.CreateMenuButton;
 begin
-  fMenuButton := TSpeedButton.Create(self);
+  FMenuButton := TSpeedButton.Create(self);
   MenuButton.Caption := 'Menu';
   MenuButton.Parent := self;
   MenuButton.Width := 100;
@@ -98,13 +104,16 @@ procedure TControlPanel.CreateMenu;
 var
   closeMenuItem: TMenuItem;
 begin
-  fMenu := TPopupMenu.Create(self);
+  FMenu := TPopupMenu.Create(self);
   // CONNECT
-  fConnectMenuItem := TMenuItem.Create(Menu);
+  FConnectMenuItem := TMenuItem.Create(Menu);
   ConnectMenuItem.Caption := 'Connect';
   Menu.Items.Add(ConnectMenuItem);
+  // SWITCHER
+  FSwitcherMenuItem := CreateSwitcherMenu;
+  Menu.Items.Add(SwitcherMenuItem);
   // DISCONNECT
-  fDisconnectMenuItem := TMenuItem.Create(Menu);
+  FDisconnectMenuItem := TMenuItem.Create(Menu);
   DisconnectMenuItem.Caption := 'Disconnect';
   Menu.Items.Add(DisconnectMenuItem);
   // CLOSE
@@ -113,12 +122,35 @@ begin
   Menu.Items.Add(closeMenuItem);
 end;
 
+function TControlPanel.CreateSwitcherMenu: TMenuItem;
+begin
+  result := TMenuItem.Create(Menu);
+  result.Caption := 'Switcher';
+  AttachSwitcherClassesMenu(result);
+end;
+
+procedure TControlPanel.AttachSwitcherClassesMenu(const aMenuItem: TMenuItem);
+var
+  i: integer;
+  item: TMenuItem;
+begin
+  for i := 0 to GetGlobalSwitcherClasses.Count - 1 do
+  begin
+    item := TMenuItem.Create(aMenuItem);
+    item.Caption := GetGlobalSwitcherClasses[i].ClassName;
+    item.RadioItem := true;
+    aMenuItem.Add(item);
+  end;
+  if aMenuItem.Count > 0 then
+    aMenuItem.Items[i].Checked := true;
+end;
+
 procedure TControlPanel.CreateControlsIfNotCreated;
 begin
   if not ControlsCreated then
   begin
     CreateControls;
-    fControlsCreated := true;
+    FControlsCreated := true;
   end;
 end;
 

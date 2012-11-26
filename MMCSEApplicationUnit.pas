@@ -1,4 +1,4 @@
-﻿unit mmcse_Application;
+﻿unit MMCSEApplicationUnit;
 
 interface
 
@@ -23,10 +23,15 @@ uses
   ULogFileModels,
   LogMemoryStorage,
 
-  mmcse_common,
-  mmcse_MainWindow,
-  mmcse_PipeConnector,
-  M2100Switcher;
+  CommonUnit,
+  MainWindowUnit,
+  SwitcherDebugPipeConnectorUnit,
+
+  {$REGION Switchers}
+  CustomSwitcherUnit,
+  M2100Switcher
+  {$ENDREGION}
+  ;
 
 type
   TMMCSEApplication = class
@@ -73,7 +78,6 @@ end;
 procedure TMMCSEApplication.InitializeLog;
 var
   consoleLogWriter: TCustomLogWriter;
-  fileLogWriter: TFileLogWriter;
 begin
   FLogManager := TPlainLogManager.Create;
 

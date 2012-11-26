@@ -13,18 +13,20 @@ uses
   Classes,
   Forms,
   UExceptionTracer,
-  mmcse_common in 'mmcse_common.pas',
-  mmcse_MainWindow in 'mmcse_MainWindow.pas',
+  CommonUnit in 'CommonUnit.pas',
+  MainWindowUnit in 'MainWindowUnit.pas',
   M2100Switcher in 'M2100Switcher.pas',
-  M2Pipe in 'M2Pipe.pas',
-  mmcse_PipeConnector in 'mmcse_PipeConnector.pas',
-  mmcse_Application in 'mmcse_Application.pas',
-  mmcse_ControlPanel in 'mmcse_ControlPanel.pas',
+  MessageBiDirectionalPipeUnit in 'MessageBiDirectionalPipeUnit.pas',
+  SwitcherDebugPipeConnectorUnit in 'SwitcherDebugPipeConnectorUnit.pas',
+  MMCSEApplicationUnit in 'MMCSEApplicationUnit.pas',
+  ControlPanelUnit in 'ControlPanelUnit.pas',
   M2100Command in 'M2100Command.pas',
   M2100Message in 'M2100Message.pas',
   M2100MessageDecoder in 'M2100MessageDecoder.pas',
   M2100Keyer in 'M2100Keyer.pas',
-  CustomSwitcherUnit in 'CustomSwitcherUnit.pas';
+  CustomSwitcherUnit in 'CustomSwitcherUnit.pas',
+  SwitcherFactoryUnit in 'SwitcherFactoryUnit.pas',
+  PresmasterSwitcher in 'PresmasterSwitcher.pas';
 
 var
   application: TMMCSEApplication;

@@ -20,7 +20,7 @@ uses
   DefaultLogEntity,
 
   M2100Keyer,
-  mmcse_common;
+  CommonUnit;
 
 type
   TM2100SubCommandClass = class of TM2100SubCommand;

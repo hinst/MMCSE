@@ -1,4 +1,4 @@
-unit mmcse_MainWindow;
+unit MainWindowUnit;
 
 
 interface
@@ -21,8 +21,8 @@ uses
   LogMemoryStorage,
   VCLLogViewPanel,
 
-  mmcse_common,
-  mmcse_ControlPanel;
+  CommonUnit,
+  ControlPanelUnit;
 
 
 type

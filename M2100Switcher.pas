@@ -31,6 +31,7 @@ uses
   EmptyLogEntity,
 
   CustomSwitcherUnit,
+  SwitcherFactoryUnit,
   M2100Message,
   M2100Keyer,
   M2100Command,
@@ -342,4 +343,6 @@ begin
   inherited;
 end;
 
+initialization
+  RegisterSwitcherClass(TM2100Switcher);
 end.
