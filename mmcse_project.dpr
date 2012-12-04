@@ -16,7 +16,7 @@ uses
   CommonUnit in 'CommonUnit.pas',
   MainWindowUnit in 'MainWindowUnit.pas',
   M2100Switcher in 'M2100Switcher.pas',
-  MessageBiDirectionalPipeUnit in 'MessageBiDirectionalPipeUnit.pas',
+  BiDirectionalMessagePipeUnit in 'BiDirectionalMessagePipeUnit.pas',
   SwitcherDebugPipeConnectorUnit in 'SwitcherDebugPipeConnectorUnit.pas',
   MMCSEApplicationUnit in 'MMCSEApplicationUnit.pas',
   ControlPanelUnit in 'ControlPanelUnit.pas',
@@ -25,8 +25,13 @@ uses
   M2100MessageDecoder in 'M2100MessageDecoder.pas',
   M2100Keyer in 'M2100Keyer.pas',
   CustomSwitcherUnit in 'CustomSwitcherUnit.pas',
-  SwitcherFactoryUnit in 'SwitcherFactoryUnit.pas',
-  PresmasterSwitcher in 'PresmasterSwitcher.pas';
+  CustomSwitcherFactoryUnit in 'CustomSwitcherFactoryUnit.pas',
+  PresmasterSwitcher in 'PresmasterSwitcher.pas',
+  M2100SwitcherClone in 'M2100SwitcherClone.pas',
+  MMCSEMenuGroups in 'MMCSEMenuGroups.pas',
+  PresmasterSwitcherMessageDecoderUnit in 'PresmasterSwitcherMessageDecoderUnit.pas',
+  CustomSwitcherMessageDecoder in 'CustomSwitcherMessageDecoder.pas',
+  CustomSwitcherMessageUnit in 'CustomSwitcherMessageUnit.pas';
 
 var
   application: TMMCSEApplication;

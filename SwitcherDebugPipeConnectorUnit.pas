@@ -21,7 +21,7 @@ uses
   CustomLogEntity,
   EmptyLogEntity,
 
-  MessageBiDirectionalPipeUnit;
+  BiDirectionalMessagePipeUnit;
 
 type
   TEmulationPipeConnector = class

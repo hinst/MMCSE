@@ -7,10 +7,11 @@ uses
   Classes,
   Contnrs,
 
+  CustomSwitcherMessageUnit,
   M2100Command;
 
 type
-  TM2100Message = class
+  TM2100Message = class(TCustomSwitcherMessage)
   public
     constructor Create;
   public
@@ -21,11 +22,10 @@ type
     CheckSum: byte;
   public
     function CommandsToText: string;
-    function ToText: string;
-    destructor Destroy; override;
+    function ToText: string; override;
     function IsAcknowledged: boolean;
-
     class function TwosComponent(const aSum: byte): byte;
+    destructor Destroy; override;
   end;
 
   EM2100Message = class(Exception);

@@ -30,8 +30,9 @@ uses
   CustomLogEntity,
   EmptyLogEntity,
 
+  CustomSwitcherMessageUnit,
   CustomSwitcherUnit,
-  SwitcherFactoryUnit,
+  CustomSwitcherFactoryUnit,
   M2100Message,
   M2100Keyer,
   M2100Command,
@@ -42,7 +43,7 @@ type
   TM2100Switcher = class(TCustomSwitcher)
   public
     constructor Create;
-    procedure Startup;
+    procedure Startup; override;
   public const
     DefaultSendReceiveThreadWaitInterval = 1;
   private
@@ -66,7 +67,7 @@ type
     property Keyers: TM2100KeyersStatus read fKeyers;
       // this propery should be assigned by the user of this class
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
-    procedure ProcessMessage(const aMessage: TStream);
+    procedure ProcessMessage(const aMessage: TStream); override;
     destructor Destroy; override;
   end;
 
@@ -123,7 +124,7 @@ var
 begin
   result := nil;
   try
-    result := TM2100MessageDecoder.Decode(aMessage);
+    result := TM2100MessageDecoder.DecodeThis(aMessage) as TM2100Message;
     AssertAssigned(result, 'result', TVariableType.Local);
   except
     on e: Exception do

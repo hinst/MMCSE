@@ -1,4 +1,4 @@
-unit SwitcherFactoryUnit;
+unit CustomSwitcherFactoryUnit;
 
 interface
 
@@ -6,6 +6,7 @@ uses
   SysUtils,
   Contnrs,
 
+  UAdditionalTypes,
   UAdditionalExceptions,
 
   CustomSwitcherUnit;
@@ -54,11 +55,7 @@ function GetSwitcherClassByName(const aClassName: string): TCustomSwitcherClass;
 var
   i: integer;
 begin
-  if GlobalSwitcherClasses = nil then
-  begin
-    result := nil;
-    exit;
-  end;
+  AssertAssigned(GlobalSwitcherClasses, 'GlobalSwitcherClasses', TVariableType.Global);
   result := nil;
   for i := 0 to GlobalSwitcherClasses.Count - 1 do
     if GlobalSwitcherClasses[i].ClassName = aClassName then

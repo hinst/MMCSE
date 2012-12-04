@@ -24,11 +24,12 @@ uses
   LogMemoryStorage,
 
   CommonUnit,
-  MainWindowUnit,
+  MMCSEMainWindowUnit,
   SwitcherDebugPipeConnectorUnit,
 
   {$REGION Switchers}
   CustomSwitcherUnit,
+  CustomSwitcherFactoryUnit,
   M2100Switcher
   {$ENDREGION}
   ;
@@ -43,12 +44,20 @@ type
     FLogMemory: TLogMemoryStorage;
     FMainForm: TEmulatorMainForm;
     FPipeConnector: TEmulationPipeConnector;
-    FSwitcher: TM2100Switcher;
+    FSwitcher: TCustomSwitcher;
+    function GetIsConnected: boolean;
+    function GetUserSwitcherClass: TCustomSwitcherClass;
     procedure InitializeLog;
     procedure ActualRun;
     procedure SafeRun;
     procedure InitializeMainForm;
     procedure UserConnect(aSender: TObject);
+    function CreateUserSwitcher: TCustomSwitcher;
+    procedure StartupUserDesiredSwitcher;
+    function SafeStartupUserDesiredSwitcher: boolean;
+    function SafeConnectSwitcher: boolean;
+    function CreateStartupUserSwitcher: TCustomSwitcher;
+    procedure ConnectSwitcher;
     procedure OnConnectedHandler(aSender: TObject);
     procedure Disconnect;
     procedure UserDisconnect(aSender: TObject);
@@ -59,7 +68,9 @@ type
     property LogMemory: TLogMemoryStorage read FLogMemory;
     property MainForm: TEmulatorMainForm read FMainForm;
     property PipeConnector: TEmulationPipeConnector read FPipeConnector;
-    property Switcher: TM2100Switcher read FSwitcher;
+    property Connected: boolean read GetIsConnected;
+    property Switcher: TCustomSwitcher read FSwitcher;
+    property UserSwitcherClass: TCustomSwitcherClass read GetUserSwitcherClass;
     procedure Run;
     destructor Destroy; override;
   end;
@@ -73,6 +84,28 @@ implementation
 constructor TMMCSEApplication.Create;
 begin
   inherited Create;
+end;
+
+function TMMCSEApplication.CreateUserSwitcher: TCustomSwitcher;
+var
+  switcherClass: TCustomSwitcherClass;
+begin
+  switcherClass := GetUserSwitcherClass;
+  AssertAssigned(switcherClass, 'switcherClass', TVariableType.Local);
+  result := switcherClass.Create;
+end;
+
+function TMMCSEApplication.GetIsConnected: boolean;
+begin
+  result := PipeConnector <> nil;
+end;
+
+function TMMCSEApplication.GetUserSwitcherClass: TCustomSwitcherClass;
+begin
+  AssertAssigned(self, 'self', TVariableType.Argument);
+  AssertAssigned(MainForm, 'MainForm', TVariableType.Prop);
+  AssertAssigned(MainForm.ControlPanel, 'MainForm.ControlPanel', TVariableType.Prop);
+  result := MainForm.ControlPanel.UserSwitcherClass;
 end;
 
 procedure TMMCSEApplication.InitializeLog;
@@ -115,7 +148,7 @@ begin
 
   Log.Write('|||', 'Now finalizing application...');
   MainForm.Enabled := false;
-    //< user can't initiate any actions during finalization routine
+    //< user should not initiate any actions during finalization routine
   FreeAndNil(FPipeConnector);
   FreeAndNil(FSwitcher);
   FreeAndNil(FMainForm);
@@ -139,26 +172,87 @@ begin
 end;
 
 procedure TMMCSEApplication.UserConnect(aSender: TObject);
+var
+  result: boolean;
 begin
-  Disconnect;
+  UserDisconnect(aSender);
+  result := SafeStartupUserDesiredSwitcher;
+  if not result then
+    exit;
+  result := SafeConnectSwitcher;
+  if not result then
+    exit;
+end;
+
+  // and remove the old one if does not match desired class
+procedure TMMCSEApplication.StartupUserDesiredSwitcher;
+begin
+  if Switcher <> nil then
+    if (Switcher.ClassType <> GetUserSwitcherClass) then
+      FreeAndNil(FSwitcher);
   if Switcher = nil then
-  begin
-    Log.Write('Now creating switcher...');
-    FSwitcher := TM2100Switcher.Create;
-    Switcher.Log := TLog.Create(GlobalLogManager, 'Switcher');
-    Switcher.Startup;
+    FSwitcher := CreateStartupUserSwitcher;
+  Log.Write('Switcher created: ' + Switcher.ClassName);
+end;
+
+function TMMCSEApplication.SafeStartupUserDesiredSwitcher: boolean;
+begin
+  result := false;
+  try
+    StartupUserDesiredSwitcher;
+    AssertAssigned(Switcher, 'Switcher', TVariableType.Prop);
+    result := true;
+  except
+    on e: Exception do
+    begin
+      Log.Write(
+        'ERROR',
+        'Could not startup switcher:' + sLineBreak
+          + GetExceptionInfo(e) + sLineBreak
+          + 'Can not continue connection routine.');
+      exit;
+    end;
   end;
-  if FPipeConnector = nil then
-  begin
-    Log.Write('Now connecting...');
-    FPipeConnector := TEmulationPipeConnector.Create;
-    PipeConnector.Log := TLog.Create(GlobalLogManager, 'PipeConnector');
-    PipeConnector.PipeName := DefaultPipeName;
-    PipeConnector.OnConnected := OnConnectedHandler;
-    PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
-    Switcher.SendMessageMethod := PipeConnector.SendMessageMethod;
-    PipeConnector.Startup;
+end;
+
+function TMMCSEApplication.SafeConnectSwitcher: boolean;
+begin
+  result := false;
+  try
+    ConnectSwitcher;
+    result := true;
+  except
+    on e: Exception do
+    begin
+      Log.Write('ERROR', 'Could not connect switcher:' + sLineBreak + GetExceptionInfo(e));
+      exit;
+    end;
   end;
+end;
+
+function TMMCSEApplication.CreateStartupUserSwitcher: TCustomSwitcher;
+begin
+  result := CreateUserSwitcher;
+  AssertAssigned(result, 'result', TVariableType.Local);
+  result.Log := TLog.Create(GlobalLogManager, 'Switcher');
+    //< assign switcher log
+  result.Startup;
+    //< startup switcher
+end;
+
+procedure TMMCSEApplication.ConnectSwitcher;
+begin
+  AssertAssigned(Switcher, 'Switcher', TVariableType.Prop);
+  Log.Write('Now connecting switcher...');
+  if PipeConnector <> nil then
+    raise Exception.Create('PipeConnector assigned: already connected, have to disconnect first');
+  FPipeConnector := TEmulationPipeConnector.Create;
+  PipeConnector.Log := TLog.Create(GlobalLogManager, 'PipeConnector');
+  PipeConnector.PipeName := DefaultPipeName;
+  PipeConnector.OnConnected := OnConnectedHandler;
+  PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
+  Switcher.SendMessageMethod := PipeConnector.SendMessageMethod;
+  PipeConnector.Startup;
 end;
 
 procedure TMMCSEApplication.OnConnectedHandler(aSender: TObject);
@@ -182,8 +276,8 @@ end;
 
 procedure TMMCSEApplication.UserDisconnect(aSender: TObject);
 begin
-  if PipeConnector = nil then
-    Log.Write('Cannot disconnect: not connected. (PipeConnector unassigned)')
+  if not Connected then
+    Log.Write('Cannot disconnect: not connected.')
   else
   begin
     try

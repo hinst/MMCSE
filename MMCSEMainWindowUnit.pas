@@ -1,4 +1,4 @@
-unit MainWindowUnit;
+unit MMCSEMainWindowUnit;
 
 
 interface

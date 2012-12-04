@@ -16,6 +16,9 @@ uses
   UAdditionalTypes,
   UAdditionalExceptions,
 
+  CustomSwitcherMessageUnit,
+  CustomSwitcherMessageDecoder,
+
   M2100Command,
   M2100Message,
   CommonUnit;
@@ -24,10 +27,10 @@ type
 
   EM2100MessageDecoder = class(EM2100Message);
 
-  TM2100MessageDecoder = class
+  TM2100MessageDecoder = class(TCustomSwitcherMessageDecoder)
   public
       // instance does not owns the aStream
-    constructor Create(const aStream: TStream);
+    constructor Create(const aStream: TStream); override;
   private
     fLog: TCustomLog;
     fStream: TStream;
@@ -51,6 +54,7 @@ type
     procedure SafeDecode;
       // creates fMessage
     procedure ActuallyDecode;
+    function GetResult: TCustomSwitcherMessage; override;
   public
       // owns the Log
     property Log: TCustomLog read fLog write ReplaceLog;
@@ -58,8 +62,7 @@ type
       // does not owns the Msg
     property Msg: TM2100Message read fMessage;
     property LastCommand: TM2100Command read GetLastCommand;
-    procedure Decode; overload;
-    class function Decode(const aStream: TStream): TM2100Message; overload;
+    procedure Decode; override;
     destructor Destroy; override;
   end;
 
@@ -77,7 +80,7 @@ implementation
 
 constructor TM2100MessageDecoder.Create(const aStream: TStream);
 begin
-  inherited Create;
+  inherited Create(aStream);
   fLog := TEmptyLog.Create;
   fStream := aStream;
 end;
@@ -101,6 +104,7 @@ end;
 
 procedure TM2100MessageDecoder.Decode;
 begin
+  SafeDecode;
 end;
 
 procedure TM2100MessageDecoder.ReadSTX;
@@ -200,6 +204,11 @@ begin
   AssertCheckSumCorrect;
 end;
 
+function TM2100MessageDecoder.GetResult: TCustomSwitcherMessage;
+begin
+  result := Msg;
+end;
+
 procedure TM2100MessageDecoder.ReadCheckSum;
 begin
   LogDecoding('Now reading checksum...');
@@ -250,19 +259,6 @@ begin
   text := aText + ' @' + IntToStr(Stream.Position);
   Log.Write(text);
   {$ENDIF}
-end;
-
-class function TM2100MessageDecoder.Decode(const aStream: TStream): TM2100Message;
-var
-  decoder: TM2100MessageDecoder;
-begin
-  decoder := TM2100MessageDecoder.Create(aStream);
-  try
-    decoder.Decode;
-    result := decoder.Msg;
-  finally
-    decoder.Free;
-  end;
 end;
 
 destructor TM2100MessageDecoder.Destroy;

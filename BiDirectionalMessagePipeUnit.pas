@@ -1,4 +1,4 @@
-unit MessageBiDirectionalPipeUnit;
+unit BiDirectionalMessagePipeUnit;
 
 interface
 

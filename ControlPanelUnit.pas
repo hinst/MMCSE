@@ -16,7 +16,9 @@ uses
   UAdditionalTypes,
   UAdditionalExceptions,
 
-  SwitcherFactoryUnit;
+  MMCSEMenuGroups,
+  CustomSwitcherUnit,
+  CustomSwitcherFactoryUnit;
 
 type
   TControlPanel = class(TFlowPanel)
@@ -32,11 +34,13 @@ type
     procedure SetParent(aParent: TWinControl); override;
     procedure SetOnUserConnect(const aValue: TNotifyEvent);
     procedure SetOnUserDisconnect(const aEvent: TNotifyEvent);
+    function GetUserSwitcherClass: TCustomSwitcherClass;
     procedure CreateControls;
     procedure CreateMenuButton;
     procedure CreateMenu;
     function CreateSwitcherMenu: TMenuItem;
     procedure AttachSwitcherClassesMenu(const aMenuItem: TMenuItem);
+    procedure HandleSwitcherMenuItemClick(aSender: TObject);
     procedure CreateControlsIfNotCreated;
     procedure OnMenuButtonClickHandler(aSender: TObject);
   public
@@ -44,6 +48,7 @@ type
     property Menu: TPopupMenu read FMenu;
     property ConnectMenuItem: TMenuItem read FConnectMenuItem;
     property SwitcherMenuItem: TMenuItem read FSwitcherMenuItem;
+    property UserSwitcherClass: TCustomSwitcherClass read GetUserSwitcherClass;
     property DisconnectMenuItem: TMenuItem read FDisconnectMenuItem;
     property ControlsCreated: boolean read FControlsCreated;
     property OnUserConnect: TNotifyEvent write SetOnUserConnect;
@@ -69,6 +74,25 @@ procedure TControlPanel.SetOnUserDisconnect(const aEvent: TNotifyEvent);
 begin
   AssertAssigned(DisconnectMenuItem, 'DisconnectMenuItem', TVariableType.Prop);
   DisconnectMenuItem.OnClick := aEvent;
+end;
+
+function TControlPanel.GetUserSwitcherClass: TCustomSwitcherClass;
+var
+  i: integer;
+  item: TMenuItem;
+  switcherClassName: string;
+begin
+  result := nil;
+  for i := 0 to SwitcherMenuItem.Count - 1 do
+  begin
+    item := SwitcherMenuItem.Items[i];
+    if item.Checked then
+    begin
+      switcherClassName := item.Name;
+      result := GetSwitcherClassByName( item.Name );
+      break;
+    end;
+  end;
 end;
 
 procedure TControlPanel.SetParent(aParent: TWinControl);
@@ -133,16 +157,30 @@ procedure TControlPanel.AttachSwitcherClassesMenu(const aMenuItem: TMenuItem);
 var
   i: integer;
   item: TMenuItem;
+  switcherClassName: string;
 begin
   for i := 0 to GetGlobalSwitcherClasses.Count - 1 do
   begin
     item := TMenuItem.Create(aMenuItem);
-    item.Caption := GetGlobalSwitcherClasses[i].ClassName;
+    switcherClassName := GetGlobalSwitcherClasses[i].ClassName;
+    item.Caption := switcherClassName + ' Switcher';
+    item.Name := switcherClassName;
     item.RadioItem := true;
+    item.GroupIndex := SWITCHER_SELECT_MENU_GROUP;
+    item.OnClick := HandleSwitcherMenuItemClick;
     aMenuItem.Add(item);
   end;
   if aMenuItem.Count > 0 then
-    aMenuItem.Items[i].Checked := true;
+    aMenuItem.Items[0].Checked := true;
+end;
+
+procedure TControlPanel.HandleSwitcherMenuItemClick(aSender: TObject);
+var
+  item: TMenuItem;
+begin
+  AssertType(aSender, TMenuItem);
+  item := aSender as TMenuItem;
+  item.Checked := true;
 end;
 
 procedure TControlPanel.CreateControlsIfNotCreated;
