@@ -1,6 +1,5 @@
 unit M2100Switcher;
 
-{ $DEFINE LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
 { $DEFINE LOG_MESSAGE_STREAM_BEFORE_SENGING}
@@ -55,7 +54,7 @@ type
     function IsAutoStatPolling(const aMessage: TM2100Message): boolean;
     function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
     function DecodeMessage(const aMessage: TStream): TM2100Message;
-    function ProcessReceivedMessage(const aMessage: TM2100Message): TM2100Message;
+    function ProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
@@ -67,7 +66,6 @@ type
     property Keyers: TM2100KeyersStatus read fKeyers;
       // this propery should be assigned by the user of this class
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
-    procedure ProcessMessage(const aMessage: TStream); override;
     destructor Destroy; override;
   end;
 
@@ -129,12 +127,7 @@ begin
   except
     on e: Exception do
     begin
-      try
-        StreamRewind(aMessage);
-        data := StreamToText(aMessage);
-      except
-        data := 'undisplayable';
-      end;
+      data := StreamToText(aMessage, true);
       Log.Write('ERROR', 'Unable to decode message. ' + sLineBreak
         + 'Stream data: ' + data + sLineBreak
         + GetExceptionInfo(e));
@@ -167,7 +160,7 @@ begin
     exit;
   end;
   try
-    result := ProcessReceivedMessage(aMessage);
+    result := ProcessMessage(aMessage);
   except
     on e: Exception do
     begin
@@ -216,20 +209,18 @@ begin
   except
     on e: Exception do
     begin
-      Log.Write('ERROR', 'Could not send response. Exception occured.');
-      Log.Write('ERROR', GetExceptionInfo(e));
-      try
-        StreamRewind(aMessage);
-        Log.Write('ERROR', 'Response is: ' +StreamToText(aMessage));
-      except
-        Log.Write('ERROR', 'Response is: can not output response');
-      end;
+      Log.Write(
+        'ERROR',
+        'Could not send response. Exception occured:'
+         + sLineBreak + GetExceptionInfo(e)
+         + 'Response is: ' +StreamToText(aMessage, true)
+      );
       AssertSuppressable(e);
     end;
   end;
 end;
 
-function TM2100Switcher.ProcessReceivedMessage(const aMessage: TM2100Message): TM2100Message;
+function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
 begin
   AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
@@ -315,27 +306,6 @@ procedure TM2100Switcher.DestroyThis;
 begin
   FreeAndNil(fKeyers);
   FreeAndNil(fLog);
-end;
-
-procedure TM2100Switcher.ProcessMessage(const aMessage: TStream);
-var
-  m: TM2100Message;
-  answerM: TM2100Message;
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  {$IFDEF LOG_MESSAGE_STREAM_BEFORE_PROCESSING}
-  StreamRewind(aMessage);
-  Log.Write('Now processing message stream: ' + StreamToText(aMessage) + '...');
-  {$ENDIF}
-  StreamRewind(aMessage);
-  m := SafeDecodeMessage(aMessage);
-  answerM := SafeProcessMessage(m);
-  m.Free;
-  if answerM = nil then
-    Log.Write('No responce for this message')
-  else
-    SendMessage(answerM);
-  answerM.Free;
 end;
 
 destructor TM2100Switcher.Destroy;

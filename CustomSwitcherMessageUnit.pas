@@ -3,7 +3,9 @@ unit CustomSwitcherMessageUnit;
 interface
 
 uses
-  SysUtils;
+  SysUtils,
+
+  UExceptionTracer;
 
 type
   ESwitcherMessage = class(Exception);
@@ -11,7 +13,10 @@ type
   TCustomSwitcherMessage = class
   public
     constructor Create; virtual;
-    function ToText: string; virtual;
+  protected
+    function ToTextInternal: string; virtual;
+  public
+    function ToText: string;
   end;
 
 implementation
@@ -21,9 +26,19 @@ begin
   inherited Create;
 end;
 
+function TCustomSwitcherMessage.ToTextInternal: string;
+begin
+  result := 'instance of ' + self.ClassName;
+end;
+
 function TCustomSwitcherMessage.ToText: string;
 begin
-  result := 'instanceOf ' + self.ClassName;
+  try
+    result := ToTextInternal;
+  except
+    on e: Exception do
+      result := 'Exception while converting this object to text: ' + GetExceptionBrief(e);
+  end;
 end;
 
 end.

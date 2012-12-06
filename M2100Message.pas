@@ -20,9 +20,10 @@ type
     Length: integer;
     Commands: TObjectList;
     CheckSum: byte;
+  protected
+    function ToTextInternal: string; override;
   public
     function CommandsToText: string;
-    function ToText: string; override;
     function IsAcknowledged: boolean;
     class function TwosComponent(const aSum: byte): byte;
     destructor Destroy; override;
@@ -38,16 +39,7 @@ begin
   Commands := TObjectList.Create(true);
 end;
 
-function TM2100Message.CommandsToText: string;
-var
-  i: integer;
-begin
-  result := '';
-  for i := 0 to Commands.Count - 1 do
-    result := result + TM2100Command(Commands[i]).ToText;
-end;
-
-function TM2100Message.ToText: string;
+function TM2100Message.ToTextInternal: string;
 begin
   result := 'M2100-Msg {';
   if IsAcknowledged then
@@ -67,6 +59,15 @@ begin
     result := result + '+$' + IntToHex(CheckSum, 2);
   end;
   result := result + '}';
+end;
+
+function TM2100Message.CommandsToText: string;
+var
+  i: integer;
+begin
+  result := '';
+  for i := 0 to Commands.Count - 1 do
+    result := result + TM2100Command(Commands[i]).ToText;
 end;
 
 function TM2100Message.IsAcknowledged: boolean;

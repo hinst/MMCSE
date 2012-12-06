@@ -1,4 +1,4 @@
-unit CustomSwitcherMessageDecoder;
+unit CustomSwitcherMessageDecoderUnit;
 
 interface
 
@@ -18,6 +18,7 @@ type
     constructor Create(const aStream: TStream); virtual;
   protected
     FLog: TEmptyLog;
+    FStream: TStream;
     procedure SetLog(const aLog: TEmptyLog);
     function GetResult: TCustomSwitcherMessage; virtual; abstract;
   public
@@ -28,6 +29,8 @@ type
     destructor Destroy; override;
   end;
 
+  TCustomSwitcherMessageDecoderClass = class of TCustomSwitcherMessageDecoder;
+
 
 implementation
 
@@ -35,6 +38,7 @@ constructor TCustomSwitcherMessageDecoder.Create(const aStream: TStream);
 begin
   inherited Create;
   FLog := TEmptyLog.Create;
+  FStream := aStream;
 end;
 
 procedure TCustomSwitcherMessageDecoder.SetLog(const aLog: TEmptyLog);

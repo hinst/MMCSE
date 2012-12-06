@@ -172,6 +172,150 @@
       
       
       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       <Excluded_Packages Name="$(BDS)\bin\bcboffice2k100.bpl">CodeGear C++Builder Office 2000 Servers Package</Excluded_Packages>
       <Excluded_Packages Name="$(BDS)\bin\bcbofficexp100.bpl">CodeGear C++Builder Office XP Servers Package</Excluded_Packages>
       <Excluded_Packages Name="$(BDS)\bin\dcloffice2k100.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -187,7 +331,8 @@
     <DCCReference Include="CommonUnit.pas" />
     <DCCReference Include="ControlPanelUnit.pas" />
     <DCCReference Include="CustomSwitcherFactoryUnit.pas" />
-    <DCCReference Include="CustomSwitcherMessageDecoder.pas" />
+    <DCCReference Include="CustomSwitcherMessageDecoderUnit.pas" />
+    <DCCReference Include="CustomSwitcherMessageEncoderUnit.pas" />
     <DCCReference Include="CustomSwitcherMessageUnit.pas" />
     <DCCReference Include="CustomSwitcherUnit.pas" />
     <DCCReference Include="M2100Command.pas" />
@@ -196,8 +341,8 @@
     <DCCReference Include="M2100MessageDecoder.pas" />
     <DCCReference Include="M2100Switcher.pas" />
     <DCCReference Include="M2100SwitcherClone.pas" />
-    <DCCReference Include="MainWindowUnit.pas" />
     <DCCReference Include="MMCSEApplicationUnit.pas" />
+    <DCCReference Include="MMCSEMainWindowUnit.pas" />
     <DCCReference Include="MMCSEMenuGroups.pas" />
     <DCCReference Include="PresmasterSwitcher.pas" />
     <DCCReference Include="PresmasterSwitcherMessageDecoderUnit.pas" />

@@ -14,7 +14,7 @@ uses
   Forms,
   UExceptionTracer,
   CommonUnit in 'CommonUnit.pas',
-  MainWindowUnit in 'MainWindowUnit.pas',
+  MMCSEMainWindowUnit in 'MMCSEMainWindowUnit.pas',
   M2100Switcher in 'M2100Switcher.pas',
   BiDirectionalMessagePipeUnit in 'BiDirectionalMessagePipeUnit.pas',
   SwitcherDebugPipeConnectorUnit in 'SwitcherDebugPipeConnectorUnit.pas',
@@ -30,8 +30,9 @@ uses
   M2100SwitcherClone in 'M2100SwitcherClone.pas',
   MMCSEMenuGroups in 'MMCSEMenuGroups.pas',
   PresmasterSwitcherMessageDecoderUnit in 'PresmasterSwitcherMessageDecoderUnit.pas',
-  CustomSwitcherMessageDecoder in 'CustomSwitcherMessageDecoder.pas',
-  CustomSwitcherMessageUnit in 'CustomSwitcherMessageUnit.pas';
+  CustomSwitcherMessageDecoderUnit in 'CustomSwitcherMessageDecoderUnit.pas',
+  CustomSwitcherMessageUnit in 'CustomSwitcherMessageUnit.pas',
+  CustomSwitcherMessageEncoderUnit in 'CustomSwitcherMessageEncoderUnit.pas';
 
 var
   application: TMMCSEApplication;

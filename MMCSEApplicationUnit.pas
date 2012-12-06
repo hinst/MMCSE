@@ -250,7 +250,7 @@ begin
   PipeConnector.Log := TLog.Create(GlobalLogManager, 'PipeConnector');
   PipeConnector.PipeName := DefaultPipeName;
   PipeConnector.OnConnected := OnConnectedHandler;
-  PipeConnector.OnIncomingMessage := Switcher.ProcessMessage;
+  PipeConnector.OnIncomingMessage := Switcher.ReceiveMessage;
   Switcher.SendMessageMethod := PipeConnector.SendMessageMethod;
   PipeConnector.Startup;
 end;

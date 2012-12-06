@@ -389,8 +389,7 @@ end;
 
 function TM2100SubCommandUnknown.DataToText: string;
 begin
-  StreamRewind(UnknownData);
-  result := StreamToText(UnknownData);
+  result := StreamToText(UnknownData, true);
 end;
 
 destructor TM2100SubCommandUnknown.Destroy;

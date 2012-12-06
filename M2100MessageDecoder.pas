@@ -17,7 +17,8 @@ uses
   UAdditionalExceptions,
 
   CustomSwitcherMessageUnit,
-  CustomSwitcherMessageDecoder,
+  CustomSwitcherMessageDecoderUnit,
+
 
   M2100Command,
   M2100Message,
