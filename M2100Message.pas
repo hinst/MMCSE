@@ -13,7 +13,7 @@ uses
 type
   TM2100Message = class(TCustomSwitcherMessage)
   public
-    constructor Create;
+    constructor Create; override;
   public
     STX: byte;
     IsDoubleLength: boolean;

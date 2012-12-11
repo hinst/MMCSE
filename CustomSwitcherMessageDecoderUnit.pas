@@ -20,10 +20,11 @@ type
     FLog: TEmptyLog;
     FStream: TStream;
     procedure SetLog(const aLog: TEmptyLog);
-    function GetResult: TCustomSwitcherMessage; virtual; abstract;
+    function GetResultMessage: TCustomSwitcherMessage; virtual; abstract;
   public
     property Log: TEmptyLog read FLog write SetLog;
-    property ResultMessage: TCustomSwitcherMessage read GetResult;
+    property Stream: TStream read FStream;
+    property ResultMessage: TCustomSwitcherMessage read GetResultMessage;
     procedure Decode; virtual; abstract;
     class function DecodeThis(const aStream: TStream): TCustomSwitcherMessage;
     destructor Destroy; override;

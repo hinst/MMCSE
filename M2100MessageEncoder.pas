@@ -6,21 +6,22 @@ uses
   SysUtils,
   Classes,
 
+  UAdditionalExceptions,
+
   CustomLogEntity,
   EmptyLogEntity,
 
+  CustomSwitcherMessageUnit,
+  CustomSwitcherMessageEncoderUnit,
   M2100Message,
   M2100Command;
 
 type
-  TM2100MessageEncoder = class
+  TM2100MessageEncoder = class(TCustomSwitcherMessageEncoder)
   public
-    constructor Create(const aMessage: TM2100Message);
-  private
-    fLog: TCustomLog;
-    fMessage: TM2100Message;
-    fStream: TStream;
-    procedure SetLog(const aLog: TCustomLog);
+    constructor Create(const aMessage: TCustomSwitcherMessage); override;
+  protected
+    FMessage: TM2100Message;
     procedure EstimateMessageLength;
     procedure EstimateCommandLength(const aCommand: TM2100Command);
     function EstimateSubCommandLength(const aSubCommand: TM2100SubCommand): integer;
@@ -39,29 +40,19 @@ type
       // Msg.CheckSum property should contain correct CheckSum value before this method is called
     procedure WriteMessageCheckSum;
   public
-    property Log: TCustomLog write SetLog;
-    property Msg: TM2100Message read fMessage;
-    property Stream: TStream read fStream;
-    procedure Encode; overload;
-    class function Encode(const aMessage: TM2100Message): TStream; overload;
+    procedure Encode; override;
     destructor Destroy; override;
   end;
 
   
 implementation
 
-constructor TM2100MessageEncoder.Create(const aMessage: TM2100Message);
+constructor TM2100MessageEncoder.Create(const aMessage: TCustomSwitcherMessage);
 begin
-  inherited Create;
-  fLog := TEmptyLog.Create;
-  fMessage := aMessage;
-  fStream := TMemoryStream.Create;
-end;
-
-procedure TM2100MessageEncoder.SetLog(const aLog: TCustomLog);
-begin
-  FreeAndNil(fLog);
-  fLog := aLog;
+  inherited Create(aMessage);
+  AssertType(aMessage, TM2100Message);
+  FMessage := aMessage as TM2100Message;
+  FStream := TMemoryStream.Create;
 end;
 
 procedure TM2100MessageEncoder.EstimateMessageLength;
@@ -69,18 +60,18 @@ var
   i: integer;
   command: TM2100Command;
 begin
-  Msg.Length := 0;
-  for i := 0 to Msg.Commands.Count - 1 do
+  FMessage.Length := 0;
+  for i := 0 to FMessage.Commands.Count - 1 do
   begin
-    command := Msg.Commands[i] as TM2100Command;
-    Msg.Length := Msg.Length + 1; // +COMMAND ID: one byte
+    command := FMessage.Commands[i] as TM2100Command;
+    FMessage.Length := FMessage.Length + 1; // +COMMAND ID: one byte
     EstimateCommandLength(command);
     {$REGION ADD COMMAND LENGTH} // +COMMAND LENGTH: one or two bytes
-    Msg.Length := Msg.Length + 1;
+    FMessage.Length := FMessage.Length + 1;
     if command.IsDoubleLength then
-      Msg.Length := Msg.Length + 1;
+      FMessage.Length := FMessage.Length + 1;
     {$ENDREGION}
-    Msg.Length := Msg.Length + command.Length; // + COMMAND BODY: as estimated
+    FMessage.Length := FMessage.Length + command.Length; // + COMMAND BODY: as estimated
   end;
 end;
 
@@ -116,7 +107,7 @@ end;
 
 procedure TM2100MessageEncoder.WriteSTX;
 begin
-  Stream.WriteBuffer(Msg.STX, 1);
+  Stream.WriteBuffer(FMessage.STX, 1);
 end;
 
 procedure TM2100MessageEncoder.WriteCommands;
@@ -124,9 +115,9 @@ var
   i: integer;
   command: TM2100Command;
 begin
-  for i := 0 to Msg.Commands.Count - 1 do
+  for i := 0 to FMessage.Commands.Count - 1 do
   begin
-    command := Msg.Commands[i] as TM2100Command;
+    command := FMessage.Commands[i] as TM2100Command;
     WriteCommand(command);
   end;
 end;
@@ -168,13 +159,13 @@ begin
     Stream.ReadBuffer(currentByte, 1);
     sum := (sum + currentByte) and $00FF;
   end;
-  Msg.CheckSum := TM2100Message.TwosComponent(sum);
+  FMessage.CheckSum := TM2100Message.TwosComponent(sum);
 end;
 
 procedure TM2100MessageEncoder.WriteMessageCheckSum;
 begin
   Stream.Seek(0, soEnd);
-  Stream.WriteBuffer(Msg.CheckSum, 1);
+  Stream.WriteBuffer(FMessage.CheckSum, 1);
 end;
 
 procedure TM2100MessageEncoder.WriteLength(const aLength: integer);
@@ -192,7 +183,7 @@ end;
 
 procedure TM2100MessageEncoder.WriteMessageLength;
 begin
-  WriteLength(Msg.Length);
+  WriteLength(FMessage.Length);
 end;
 
 destructor TM2100MessageEncoder.Destroy;
@@ -213,22 +204,9 @@ begin
   WriteMessageCheckSum;
 end;
 
-class function TM2100MessageEncoder.Encode(const aMessage: TM2100Message): TStream;
-var
-  encoder: TM2100MessageEncoder;
-begin
-  encoder := TM2100MessageEncoder.Create(aMessage);
-  try
-    encoder.Encode;
-    result := encoder.Stream;
-  finally
-    encoder.Free;
-  end;
-end;
-
 function TM2100MessageEncoder.EncodeAsAcknowledged: boolean;
 begin
-  result := Msg.IsAcknowledged;
+  result := FMessage.IsAcknowledged;
   if result then
     Stream.WriteBuffer(M2100MessageCommandClass_ACKNOWLEDGED, 1);
 end;

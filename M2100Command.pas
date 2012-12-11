@@ -9,12 +9,14 @@ interface
 
 uses
   SysUtils,
+  StrUtils,
   Classes,
   Contnrs,
 
   UAdditionalTypes,
   UAdditionalExceptions,
   UStreamUtilities,
+  UTextUtilities,
 
   EmptyLogEntity,
   DefaultLogEntity,

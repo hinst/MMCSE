@@ -16,6 +16,7 @@ type
   protected
     function ToTextInternal: string; virtual;
   public
+    const PollingTag = 'Polling';
     function ToText: string;
   end;
 

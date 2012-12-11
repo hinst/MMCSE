@@ -41,26 +41,21 @@ uses
 type
   TM2100Switcher = class(TCustomSwitcher)
   public
-    constructor Create;
+    constructor Create; override;
     procedure Startup; override;
   public const
     DefaultSendReceiveThreadWaitInterval = 1;
-  private
+  protected
     fKeyers: TM2100KeyersStatus;
     fAutomationStatus: boolean;
     procedure AssignDefaults;
     procedure InitializeKeyers;
-    function GetAdditionalMessageLogTags(const aMessage: TM2100Message): string;
+    function GetAdditionalMessageLogTags(const aMessage: TCustomSwitcherMessage): string; override;
     function IsAutoStatPolling(const aMessage: TM2100Message): boolean;
-    function SafeDecodeMessage(const aMessage: TStream): TM2100Message;
-    function DecodeMessage(const aMessage: TStream): TM2100Message;
-    function ProcessMessage(const aMessage: TM2100Message): TM2100Message;
-    function SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
+    function ProcessMessage(const aMessage: TCustomSwitcherMessage): TCustomSwitcherMessage; override;
     function ProcessCommands(const aMessage: TM2100Message): TM2100Message;
     function ProcessCommand(const aCommand: TM2100Command): TM2100Command;
     function ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
-    procedure SendMessage(const aMessage: TM2100Message);
-    procedure SafeSendMessage(const aMessage: TStream);
     procedure DestroyThis;
   public
     property Keyers: TM2100KeyersStatus read fKeyers;
@@ -92,12 +87,19 @@ end;
 procedure TM2100Switcher.AssignDefaults;
 begin
   AutomationStatus := true;
+  FDecoderClass := TM2100MessageDecoder;
+  FEncoderClass := TM2100MessageEncoder;
 end;
 
-function TM2100Switcher.GetAdditionalMessageLogTags(const aMessage: TM2100Message): string;
+function TM2100Switcher.GetAdditionalMessageLogTags(const aMessage: TCustomSwitcherMessage): string;
+var
+  mssage: TM2100Message;
 begin
-  if IsAutoStatPolling(aMessage) then
-    result := 'Polling';
+  result := '';
+  AssertType(aMessage, TM2100Message);
+  mssage := aMessage as TM2100Message;
+  if IsAutoStatPolling(mssage) then
+    AppendSpaced(result, mssage.PollingTag);
 end;
 
 function TM2100Switcher.IsAutoStatPolling(const aMessage: TM2100Message): boolean;
@@ -112,129 +114,29 @@ begin
   if not result then
     exit;
   result := result
-    and (command.SubCommands[0] is TM2100SubCommandAutoStat)
-    or (command.SubCommands[0] is TM2100SubCommandAutoStatAnswer);
+     and (command.SubCommands[0] is TM2100SubCommandAutoStat)
+     or (command.SubCommands[0] is TM2100SubCommandAutoStatAnswer);
 end;
 
-function TM2100Switcher.DecodeMessage(const aMessage: TStream): TM2100Message;
+function TM2100Switcher.ProcessMessage(const aMessage: TCustomSwitcherMessage)
+  : TCustomSwitcherMessage;
 var
-  data: string;
+  mssage: TM2100Message;
 begin
-  result := nil;
-  try
-    result := TM2100MessageDecoder.DecodeThis(aMessage) as TM2100Message;
-    AssertAssigned(result, 'result', TVariableType.Local);
-  except
-    on e: Exception do
-    begin
-      data := StreamToText(aMessage, true);
-      Log.Write('ERROR', 'Unable to decode message. ' + sLineBreak
-        + 'Stream data: ' + data + sLineBreak
-        + GetExceptionInfo(e));
-    end;
-  end;
-end;
-
-function TM2100Switcher.SafeDecodeMessage(const aMessage: TStream): TM2100Message;
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  try
-    result := DecodeMessage(aMessage);
-  except
-    on e: Exception do
-    begin
-      result := nil;
-      Log.Write('ERROR', 'Exception while decoding message');
-      Log.Write('ERROR', GetExceptionInfo(e));
-      AssertSuppressable(e);
-    end;
-  end;
-end;
-
-function TM2100Switcher.SafeProcessMessage(const aMessage: TM2100Message): TM2100Message;
-begin
-  if not Assigned(aMessage) then
-  begin
-    result := nil;
-    Log.Write('ERROR', 'Can not process message: aMessage argument is unassigned');
-    exit;
-  end;
-  try
-    result := ProcessMessage(aMessage);
-  except
-    on e: Exception do
-    begin
-      result := nil;
-      Log.Write('ERROR', 'Exception while processing message');
-      Log.Write('ERROR', GetExceptionInfo(e));
-      if Assigned(aMessage) then
-        try
-          Log.Write('ERROR', 'Message which caused the exception: ' + sLineBreak
-            + ' ' + aMessage.ToText);
-        except
-          Log.Write('ERROR', 'Message which caused exception can not be converted to text');
-        end;
-      AssertSuppressable(e);
-    end;
-  end;
-end;
-
-procedure TM2100Switcher.SendMessage(const aMessage: TM2100Message);
-var
-  stream: TStream;
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  stream := TM2100MessageEncoder.Encode(aMessage);
-  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING}
-  Log.Write(
-    SpacedStrings(['Sending', GetAdditionalMessageLogTags(aMessage)]),
-    aMessage.ToText
-  );
-  {$ENDIF}
-  {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENGING}
-  StreamRewind(stream);
-  Log.Write('send message', 'Now sending message ' + StreamToText(stream));
-  {$ENDIF}
-  SafeSendMessage(stream);
-  stream.Free;
-end;
-
-procedure TM2100Switcher.SafeSendMessage(const aMessage: TStream);
-begin
-  try
-    AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-    AssertAssigned(@SendMessageMethod, 'SendResponse', TVariableType.Prop);
-    StreamRewind(aMessage);
-    SendMessageMethod(aMessage);
-  except
-    on e: Exception do
-    begin
-      Log.Write(
-        'ERROR',
-        'Could not send response. Exception occured:'
-         + sLineBreak + GetExceptionInfo(e)
-         + 'Response is: ' +StreamToText(aMessage, true)
-      );
-      AssertSuppressable(e);
-    end;
-  end;
-end;
-
-function TM2100Switcher.ProcessMessage(const aMessage: TM2100Message): TM2100Message;
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  AssertType(aMessage, TM2100Message);
+  mssage := aMessage as TM2100Message;
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
   Log.Write(
     SpacedStrings([ 'Processing', GetAdditionalMessageLogTags(aMessage) ]),
-    'Now processing message:..' + sLineBreak + '  ' + aMessage.ToText
+    'Now processing message:..' + sLineBreak + '  ' + mssage.ToText
   );
   {$ENDIF}
-  if aMessage.IsAcknowledged then
+  if mssage.IsAcknowledged then
   begin
     result := nil;
     exit;
   end;
-  result := ProcessCommands(aMessage);
+  result := ProcessCommands(mssage);
 end;
 
 function TM2100Switcher.ProcessCommands(const aMessage: TM2100Message): TM2100Message;

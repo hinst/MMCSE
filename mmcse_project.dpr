@@ -32,7 +32,9 @@ uses
   PresmasterSwitcherMessageDecoderUnit in 'PresmasterSwitcherMessageDecoderUnit.pas',
   CustomSwitcherMessageDecoderUnit in 'CustomSwitcherMessageDecoderUnit.pas',
   CustomSwitcherMessageUnit in 'CustomSwitcherMessageUnit.pas',
-  CustomSwitcherMessageEncoderUnit in 'CustomSwitcherMessageEncoderUnit.pas';
+  CustomSwitcherMessageEncoderUnit in 'CustomSwitcherMessageEncoderUnit.pas',
+  PresmasterSwitcherMessage in 'PresmasterSwitcherMessage.pas',
+  PresmasterSwitcherMessageEncoderUnit in 'PresmasterSwitcherMessageEncoderUnit.pas';
 
 var
   application: TMMCSEApplication;

@@ -34,7 +34,6 @@ type
     constructor Create(const aStream: TStream); override;
   private
     fLog: TCustomLog;
-    fStream: TStream;
     fMessage: TM2100Message;
     function GetLastCommand: TM2100Command;
     function ReadLength(out aDoubleLength: boolean): integer;
@@ -55,11 +54,10 @@ type
     procedure SafeDecode;
       // creates fMessage
     procedure ActuallyDecode;
-    function GetResult: TCustomSwitcherMessage; override;
+    function GetResultMessage: TCustomSwitcherMessage; override;
   public
       // owns the Log
     property Log: TCustomLog read fLog write ReplaceLog;
-    property Stream: TStream read fStream;
       // does not owns the Msg
     property Msg: TM2100Message read fMessage;
     property LastCommand: TM2100Command read GetLastCommand;
@@ -205,7 +203,7 @@ begin
   AssertCheckSumCorrect;
 end;
 
-function TM2100MessageDecoder.GetResult: TCustomSwitcherMessage;
+function TM2100MessageDecoder.GetResultMessage: TCustomSwitcherMessage;
 begin
   result := Msg;
 end;
