@@ -5,6 +5,9 @@ interface
 uses
   Classes,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
+
   CustomSwitcherMessageUnit,
   CustomSwitcherMessageEncoderUnit,
   PresmasterSwitcherMessage;
@@ -27,6 +30,8 @@ implementation
 constructor TPresmasterSwitcherMessageEncoder.Create(const aMessage: TCustomSwitcherMessage);
 begin
   inherited Create(aMessage);
+  AssertType(aMessage, TPresmasterMessage);
+  FMessage := aMessage as TPresmasterMessage;
   FStream := TMemoryStream.Create;
 end;
 
@@ -50,10 +55,10 @@ end;
 
 procedure TPresmasterSwitcherMessageEncoder.WriteSimpleMessage;
 var
-  transformedMessage: TPresmasterMessage;
+  command: byte;
 begin
-  WriteSimpleMessageCommand;
-  transformedMessage := FMessage.Transform;
+  command := FMessage.Command;
+  Stream.Write(command, 1);
 end;
 
 procedure TPresmasterSwitcherMessageEncoder.WriteSimpleMessageCommand;

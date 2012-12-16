@@ -26,7 +26,6 @@ type
     function GetAdditionalMessageLogTags(const aMessage: TCustomSwitcherMessage): string; overload;
       override;
     function GetAdditionalMessageLogTags(const aMessage: TPresmasterMessage): string; overload;
-    function CreatePollingAnswer: TPresmasterMessage;
     function ProcessMessage(const aMessage: TCustomSwitcherMessage): TCustomSwitcherMessage;
       overload; override;
     function ProcessMessage(const aMessage: TPresmasterMessage): TPresmasterMessage; overload;
@@ -60,13 +59,10 @@ function TPresmasterSwitcher.GetAdditionalMessageLogTags(const aMessage: TPresma
   : string;
 begin
   result := '';
-  if aMessage.IsPolling then
+  if aMessage is TPresmasterMessagePoll then
     AppendSpaced(result, aMessage.PollingTag);
-end;
-
-function TPresmasterSwitcher.CreatePollingAnswer: TPresmasterMessage;
-begin
-  result := TPresmasterMessagePollAnswer.Create;
+  if aMessage is TPresmasterMessagePollAnswer then
+    AppendSpaced(result, aMessage.PollingTag);
 end;
 
 function TPresmasterSwitcher.ProcessMessage(const aMessage: TCustomSwitcherMessage)
@@ -79,8 +75,8 @@ end;
 function TPresmasterSwitcher.ProcessMessage(const aMessage: TPresmasterMessage): TPresmasterMessage;
 begin
   result := nil;
-  if aMessage.IsPolling then
-    result := CreatePollingAnswer;
+  if aMessage is TPresmasterMessagePoll then
+    result := TPresmasterMessagePollAnswer.Create;
 end;
 
 initialization

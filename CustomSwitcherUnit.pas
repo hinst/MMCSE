@@ -1,10 +1,12 @@
 unit CustomSwitcherUnit;
 
 {$DEFINE LOG_MESSAGE_STREAM_BEFORE_DECODING}
+{$DEFINE LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
 {$DEFINE LOG_MESSAGE_CONTENT_BEFORE_SENDING}
 {$DEFINE LOG_MESSAGE_STREAM_BEFORE_SENDING}
 { $DEFINE NODECODE_MODE}
 { $DEFINE LOG_WARN_ON_NO_RESPONSE}
+{ $Define LogProcessReceivedMessageStages}
 
 interface
 
@@ -47,6 +49,7 @@ type
     function SafeEncodeMessage(const aMessage: TCustomSwitcherMessage): TStream;
     function SafeSendMessage(const aMessage: TStream): boolean;
     procedure ProcessReceivedMessage(const aMessage: TStream);
+    procedure LogProcessReceivedMessageStages(const aText: string); inline;
   public
       // external log assignment scheme
     property Log: TEmptyLog read FLog write FLog;
@@ -147,7 +150,7 @@ begin
     AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
     AssertAssigned(@SendMessageMethod, 'SendMessageMethod', TVariableType.Prop);
     {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENDING}
-    Log.Write('Send message stream', StreamToText(aMessage, true));
+    Log.Write('send message stream', StreamToText(aMessage, true));
     {$ENDIF}
     StreamRewind(aMessage);
     SendMessageMethod(aMessage);
@@ -163,47 +166,66 @@ begin
 end;
 
 procedure TCustomSwitcher.ProcessReceivedMessage(const aMessage: TStream);
+  procedure lprms(const s: string);
+  begin
+    LogProcessReceivedMessageStages(s);
+  end;
 var
   messge: TCustomSwitcherMessage;
   answerMessage: TCustomSwitcherMessage;
   encodedAnswerMessage: TStream;
   seamr: boolean; // sendEncodedAnswerMessageResult
 begin
+  lprms('Received');
   {$IFDEF LOG_MESSAGE_STREAM_BEFORE_DECODING}
-  Log.Write('Receive message stream', StreamToText(aMessage, true));
+  Log.Write('receive message stream', StreamToText(aMessage, true));
   {$ENDIF}
   {$IFDEF NODECODE_MODE}
   exit;
   {$ENDIF}
-  messge := SafeDecodeMessage(aMessage); // <--- DECODE
+  lprms('Decoding...');
+  messge := SafeDecodeMessage(aMessage);
   if messge = nil then
     exit;
-  answerMessage := SafeProcessMessage(messge); // <--- PROCESS
+  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
+  Log.Write('receive message content', messge.ToText);
+  {$ENDIF}
+  lprms('Processing...');
+  answerMessage := SafeProcessMessage(messge);
   messge.Free;
   if answerMessage = nil then
   begin
     {$IFDEF LOG_WARN_ON_NO_RESPONSE}
     Log.Write('WARN', 'No responce for this message');
     {$ENDIF}
+    lprms('End of routine: no answer');
     exit;
   end;
-  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING} // <--- write answer to log
-  // Log.Write('LMCBS...');
+  {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_SENDING}
   Log.Write(
-    SpacedStrings(['Send message', GetAdditionalMessageLogTags(answerMessage)]),
+    SpacedStrings(['send message content', GetAdditionalMessageLogTags(answerMessage)]),
     answerMessage.ToText
   );
-  // Log.Write('LMCBS.');
   {$ENDIF}
-  encodedAnswerMessage := SafeEncodeMessage(answerMessage); // <-- ENCODE
+  lprms('Encoding...');
+  encodedAnswerMessage := SafeEncodeMessage(answerMessage);
   answerMessage.Free;
   if encodedAnswerMessage = nil then
     exit;
   StreamRewind(encodedAnswerMessage);
-  seamr := SafeSendMessage(encodedAnswerMessage); // <- SEND
+  lprms('Sending...');
+  seamr := SafeSendMessage(encodedAnswerMessage);
   encodedAnswerMessage.Free;
   if not seamr then
     exit;
+  lprms('End of routine.');
+end;
+
+procedure TCustomSwitcher.LogProcessReceivedMessageStages(const aText: string);
+begin
+  {$IFDEF LogProcessReceivedMessageStages}
+  Log.Write('process stages', aText);
+  {$ENDIF}
 end;
 
 procedure TCustomSwitcher.ReceiveMessage(const aMessage: TStream);

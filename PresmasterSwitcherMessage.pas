@@ -1,14 +1,24 @@
 unit PresmasterSwitcherMessage;
 
+{ $Define ClassToText}
+
 interface
 
 uses
+  SysUtils,
+  Classes,
+
+  UStreamUtilities,
+
   CustomSwitcherMessageUnit;
 
 type
+  TPresmasterMessageClass = class of TPresmasterMessage;
+
   TPresmasterMessage = class(TCustomSwitcherMessage)
   public
     constructor Create; override;
+    class function CreateSpecific(const aMessage: TPresmasterMessage): TPresmasterMessage;
   public const
     {$Region Formats}
     FormatSimple = $FF;
@@ -24,11 +34,11 @@ type
     {$EndRegion}
   protected
     FFormat: byte;
-    FCommand: byte;
+    FCommand: word;
     function ToTextInternal: string; override;
   public
     property Format: byte read FFormat write FFormat;
-    property Command: byte read FCommand write FCommand;
+    property Command: word read FCommand write FCommand;
     function IsValidFormat: boolean; overload;
     function IsSimpleSetCommand: boolean; overload;
     function FormatToText: string; overload;
@@ -38,9 +48,21 @@ type
     class function IsValidFormat(const aFormat: byte): boolean; overload;
     class function IsSimpleSetCommand(const aCommand: byte): boolean; overload;
     class function FormatToText(const aFormat: byte): string; overload;
-    class function CommandToText(const aCommand: byte): string; overload;
+    class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
     class function IsPolling(const aCommand: byte): boolean; overload;
-    function Transform: TPresmasterMessage;
+    function DetectClass: TPresmasterMessageClass;
+    class procedure ResolveSpecific(var aResult: TPresmasterMessage);
+  end;
+
+  TPresmasterMessageUnknown = class(TPresmasterMessage)
+  public
+    constructor Create; override;
+  protected
+    FStream: TStream;
+    function ToTextInternal: string; override;
+  public
+    property Stream: TStream read FStream;
+    destructor Destroy; override;
   end;
 
   TPresmasterMessagePoll = class(TPresmasterMessage)
@@ -58,9 +80,21 @@ begin
   inherited Create;
 end;
 
+class function TPresmasterMessage.CreateSpecific(const aMessage: TPresmasterMessage): TPresmasterMessage;
+var
+  t: TPresmasterMessageClass;
+begin
+  t := aMessage.DetectClass;
+  result := t.Create;
+  result.Assign(aMessage);
+end;
+
 function TPresmasterMessage.ToTextInternal: string;
 begin
   result := 'Cmmd: ' + CommandToText;
+  {$IfDef ClassToText}
+  result := result + '; Class: ' + ClassName;
+  {$EndIf}
 end;
 
 function TPresmasterMessage.IsValidFormat: boolean;
@@ -75,7 +109,7 @@ end;
 
 function TPresmasterMessage.CommandToText: string;
 begin
-  result := CommandToText(Command);
+  result := CommandToText(Format, Command);
 end;
 
 function TPresmasterMessage.IsSimpleSetCommand: boolean;
@@ -117,9 +151,19 @@ begin
   end;
 end;
 
-class function TPresmasterMessage.CommandToText(const aCommand: byte): string;
+class function TPresmasterMessage.CommandToText(const aFormat: byte; const aCommand: word): string;
+  function CommandAsHex(const aFormat: byte; const aCommand: word): string; inline;
+  begin
+    result := '';
+    if aFormat = FormatSimple then
+      result := IntToHex(aCommand, 2);
+    if aFormat = FormatExtended then
+      result := IntToHex(aCommand, 4);
+    if result = '' then
+      result := 'Invalid format';
+  end;
 begin
-  result := 'Unknown';
+  result := '';
   if aCommand = SetAUXBusCommand then
     result := 'Set AUX Bus';
   if aCommand = SetPGMBusCommand then
@@ -128,6 +172,10 @@ begin
     result := 'Set PST Bus';
   if aCommand = PollCommand then
     result := 'Poll';
+  if aCommand = AnswerPollCommand then
+    result := 'AnswerPoll';
+  if result = '' then
+    result := 'Unknown: ' + CommandAsHex(aFormat, aCommand);
 end;
 
 class function TPresmasterMessage.IsPolling(const aCommand: byte): boolean;
@@ -135,21 +183,43 @@ begin
   result := aCommand = PollCommand;
 end;
 
-function TPresmasterMessage.Transform: TPresmasterMessage;
+function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
 begin
   result := nil;
-  if IsPolling then
-  begin
-    result := TPresmasterMessagePoll.Create;
-    result.Assign(self);
-  end;
+  {$Region TypeDetection}
+  if (Format = FormatSimple) and (Command = PollCommand) then
+    result := TPresmasterMessagePoll;
+  {$EndRegion}
   if result = nil then
-  begin
-    result := TPresmasterMessage.Create
-    result.Assign(self);
-  end;
+    result := TPresmasterMessageUnknown;
 end;
 
+class procedure TPresmasterMessage.ResolveSpecific(var aResult: TPresmasterMessage);
+var
+  result: TPresmasterMessage;
+begin
+  result := CreateSpecific(aResult);
+  aResult.Free;
+  aResult := result;
+end;
+
+
+constructor TPresmasterMessageUnknown.Create;
+begin
+  inherited Create;
+  FStream := TMemoryStream.Create;
+end;
+
+function TPresmasterMessageUnknown.ToTextInternal: string;
+begin
+  result := 'Cmmd: ' + CommandToText + '; Stream: ' + StreamToText(Stream, true);
+end;
+
+destructor TPresmasterMessageUnknown.Destroy;
+begin
+  FreeAndNil(FStream);
+  inherited Destroy;
+end;
 
 constructor TPresmasterMessagePollAnswer.Create;
 begin
