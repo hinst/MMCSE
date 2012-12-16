@@ -188,7 +188,10 @@ begin
   if messge = nil then
     exit;
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
-  Log.Write('receive message content', messge.ToText);
+  Log.Write(
+    SpacedStrings(['receive message content', GetAdditionalMessageLogTags(messge)]),
+    messge.ToText
+  );
   {$ENDIF}
   lprms('Processing...');
   answerMessage := SafeProcessMessage(messge);
