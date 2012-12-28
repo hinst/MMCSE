@@ -6,19 +6,23 @@ uses
   SysUtils,
   Classes,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
   UStreamUtilities,
 
   CustomSwitcherMessageUnit,
+  CustomSwitcherMessageListUnit,
   CustomSwitcherMessageDecoderUnit,
-  PresmasterSwitcherMessage;
+  PresmasterSwitcherMessage,
+  PresmasterSwitcherMessageListUnit;
 
 type
   TPresmasterSwitcherMessageDecoder = class(TCustomSwitcherMessageDecoder)
   public
     constructor Create(const aStream: TStream); override;
   protected
-    FMessage: TPresmasterMessage;
-    function GetResultMessage: TCustomSwitcherMessage; override;
+    FMessages: TPresmasterSwitcherMessageList;
+    function GetResults: TCustomSwitcherMessageList; override;
     procedure ReadFormatField;
     procedure ReadCommandField;
     procedure ReadSimpleCommand;
@@ -35,12 +39,12 @@ implementation
 constructor TPresmasterSwitcherMessageDecoder.Create(const aStream: TStream);
 begin
   inherited Create(aStream);
-  FMessage := TPresmasterMessage.Create;
+  FMessages := TPresmasterSwitcherMessageList.Create;
 end;
 
-function TPresmasterSwitcherMessageDecoder.GetResultMessage: TCustomSwitcherMessage;
+function TPresmasterSwitcherMessageDecoder.GetResults: TCustomSwitcherMessageList;
 begin
-  result := FMessage;
+  result := FMessages;
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadFormatField;
@@ -91,8 +95,18 @@ begin
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadUnknown(const aMessage: TPresmasterMessageUnknown);
+var
+  remainingSize: integer;
+  beginningSize: integer;
 begin
-  aMessage.Stream.CopyFrom(Stream, CalculateRemainingSize(Stream));
+  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
+  AssertAssigned(Stream, 'Stream', TVariableType.Prop);
+  remainingSize := CalculateRemainingSize(Stream);
+  beginningSize := Stream.Position;
+  StreamRewind(Stream);
+  aMessage.Beginning.CopyFrom(Stream, beginningSize);
+  //log.Write('remaining size is ' + IntToStr(remainingSize));
+  aMessage.Rest.CopyFrom(Stream, remainingSize);
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.Decode;

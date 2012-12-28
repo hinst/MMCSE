@@ -1,5 +1,7 @@
 unit CustomSwitcherMessageDecoderUnit;
 
+{$Define EnableDefaultMMCSELog}
+
 interface
 
 uses
@@ -7,7 +9,12 @@ uses
   Classes,
 
   EmptyLogEntity,
-  CustomSwitcherMessageUnit;
+  {$IfDef EnableDefaultMMCSELog}
+  DefaultLogEntity,
+  CommonUnit,
+  {$EndIf}
+  CustomSwitcherMessageUnit,
+  CustomSwitcherMessageListUnit;
 
 type
 
@@ -20,13 +27,13 @@ type
     FLog: TEmptyLog;
     FStream: TStream;
     procedure SetLog(const aLog: TEmptyLog);
-    function GetResultMessage: TCustomSwitcherMessage; virtual; abstract;
+    function GetResults: TCustomSwitcherMessageList; virtual; abstract;
   public
     property Log: TEmptyLog read FLog write SetLog;
     property Stream: TStream read FStream;
-    property ResultMessage: TCustomSwitcherMessage read GetResultMessage;
+    property Results: TCustomSwitcherMessageList read GetResults;
     procedure Decode; virtual; abstract;
-    class function DecodeThis(const aStream: TStream): TCustomSwitcherMessage;
+    class function DecodeThis(const aStream: TStream): TCustomSwitcherMessageList;
     destructor Destroy; override;
   end;
 
@@ -48,14 +55,17 @@ begin
 end;
 
 class function TCustomSwitcherMessageDecoder.DecodeThis(const aStream: TStream)
-  : TCustomSwitcherMessage;
+  : TCustomSwitcherMessageList;
 var
   decoder: TCustomSwitcherMessageDecoder;
 begin
   decoder := self.Create(aStream);
+  {$IfDef EnableDefaultMMCSELog}
+  decoder.Log := TLog.Create(GlobalLogManager, 'Decoder[' + self.ClassName + ']');
+  {$ENDIF}
   try
     decoder.Decode;
-    result := decoder.ResultMessage;
+    result := decoder.Results;
   finally
     decoder.Free;
   end;

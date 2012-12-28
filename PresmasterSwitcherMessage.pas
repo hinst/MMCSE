@@ -43,13 +43,11 @@ type
     function IsSimpleSetCommand: boolean; overload;
     function FormatToText: string; overload;
     function CommandToText: string; overload;
-    function IsPolling: boolean; overload;
     procedure Assign(const aMessage: TPresmasterMessage);
     class function IsValidFormat(const aFormat: byte): boolean; overload;
     class function IsSimpleSetCommand(const aCommand: byte): boolean; overload;
     class function FormatToText(const aFormat: byte): string; overload;
     class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
-    class function IsPolling(const aCommand: byte): boolean; overload;
     function DetectClass: TPresmasterMessageClass;
     class procedure ResolveSpecific(var aResult: TPresmasterMessage);
   end;
@@ -58,10 +56,12 @@ type
   public
     constructor Create; override;
   protected
-    FStream: TStream;
+    FBeginning: TStream;
+    FRest: TStream;
     function ToTextInternal: string; override;
   public
-    property Stream: TStream read FStream;
+    property Beginning: TStream read FBeginning;
+    property Rest: TStream read FRest;
     destructor Destroy; override;
   end;
 
@@ -80,7 +80,8 @@ begin
   inherited Create;
 end;
 
-class function TPresmasterMessage.CreateSpecific(const aMessage: TPresmasterMessage): TPresmasterMessage;
+class function TPresmasterMessage.CreateSpecific(const aMessage: TPresmasterMessage)
+  : TPresmasterMessage;
 var
   t: TPresmasterMessageClass;
 begin
@@ -115,11 +116,6 @@ end;
 function TPresmasterMessage.IsSimpleSetCommand: boolean;
 begin
   result := IsSimpleSetCommand(Command);
-end;
-
-function TPresmasterMessage.IsPolling: boolean;
-begin
-  result := IsPolling(Command);
 end;
 
 procedure TPresmasterMessage.Assign(const aMessage: TPresmasterMessage);
@@ -178,11 +174,6 @@ begin
     result := 'Unknown: ' + CommandAsHex(aFormat, aCommand);
 end;
 
-class function TPresmasterMessage.IsPolling(const aCommand: byte): boolean;
-begin
-  result := aCommand = PollCommand;
-end;
-
 function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
 begin
   result := nil;
@@ -207,17 +198,22 @@ end;
 constructor TPresmasterMessageUnknown.Create;
 begin
   inherited Create;
-  FStream := TMemoryStream.Create;
+  FBeginning := TMemoryStream.Create;
+  FRest := TMemoryStream.Create;
 end;
 
 function TPresmasterMessageUnknown.ToTextInternal: string;
 begin
-  result := 'Cmmd: ' + CommandToText + '; Stream: ' + StreamToText(Stream, true);
+  result :=
+    'Cmmd: ' + CommandToText + '; '
+    + StreamToText(Beginning, true) + ', '
+    + StreamToText(Rest, true);
 end;
 
 destructor TPresmasterMessageUnknown.Destroy;
 begin
-  FreeAndNil(FStream);
+  FreeAndNil(FBeginning);
+  FreeAndNil(FRest);
   inherited Destroy;
 end;
 

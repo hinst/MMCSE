@@ -34,7 +34,10 @@ uses
   CustomSwitcherMessageUnit in 'CustomSwitcherMessageUnit.pas',
   CustomSwitcherMessageEncoderUnit in 'CustomSwitcherMessageEncoderUnit.pas',
   PresmasterSwitcherMessage in 'PresmasterSwitcherMessage.pas',
-  PresmasterSwitcherMessageEncoderUnit in 'PresmasterSwitcherMessageEncoderUnit.pas';
+  PresmasterSwitcherMessageEncoderUnit in 'PresmasterSwitcherMessageEncoderUnit.pas',
+  CustomSwitcherMessageListUnit in 'CustomSwitcherMessageListUnit.pas',
+  M2100MessageList in 'M2100MessageList.pas',
+  PresmasterSwitcherMessageListUnit in 'PresmasterSwitcherMessageListUnit.pas';
 
 var
   application: TMMCSEApplication;

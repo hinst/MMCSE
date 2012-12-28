@@ -17,6 +17,7 @@ uses
   UAdditionalExceptions,
 
   CustomSwitcherMessageUnit,
+  CustomSwitcherMessageListUnit,
   CustomSwitcherMessageDecoderUnit,
 
 
@@ -54,7 +55,7 @@ type
     procedure SafeDecode;
       // creates fMessage
     procedure ActuallyDecode;
-    function GetResultMessage: TCustomSwitcherMessage; override;
+    function GetResults: TCustomSwitcherMessageList; override;
   public
       // owns the Log
     property Log: TCustomLog read fLog write ReplaceLog;
@@ -203,9 +204,10 @@ begin
   AssertCheckSumCorrect;
 end;
 
-function TM2100MessageDecoder.GetResultMessage: TCustomSwitcherMessage;
+function TM2100MessageDecoder.GetResults: TCustomSwitcherMessageList;
 begin
-  result := Msg;
+  result := TCustomSwitcherMessageList.Create;
+  result.Add( Msg );
 end;
 
 procedure TM2100MessageDecoder.ReadCheckSum;
