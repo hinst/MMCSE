@@ -27,13 +27,17 @@ type
     FormatExtended = $FE;
     FormatSimpleTail = $7F;
     {$EndRegion}
-    {$Region Simple Commands}
+    {$Region SimpleCommands}
+    SetTransitionType = $01;
     SetAUXBusCommand = $08;
     SetTXVideo = $09;
     SetTXAudio = $0A;
-    SetPSTBusCommand = $0B;
+    SetPresetVideo = $0B;
+    SetPresetAudio = $0C;
     PollCommand = $1E;
     AnswerPollCommand = $5E;
+    {$EndRegion}
+    {$Region ExtendedCommands}
     {$EndRegion}
   protected
     FFormat: byte;
@@ -50,7 +54,9 @@ type
     class function IsValidFormat(const aFormat: byte): boolean; overload;
     class function IsSimpleSetCommand(const aCommand: byte): boolean; overload;
     class function FormatToText(const aFormat: byte): string; overload;
+    class function CommandToHex(const aFormat: byte; const aCommand: word): string;
     class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
+    class function SimpleCommandToText(const aCommand: word): string;
     function DetectClass: TPresmasterMessageClass;
     class procedure ResolveSpecific(var aResult: TPresmasterMessage);
     procedure ReadSpecific(const aStream: TStream); virtual;
@@ -83,10 +89,15 @@ type
     constructor Create; override;
   protected
     FSwitchTo: Word;
+    function ToTextInternal: string; override;
   public
     property SwitchTo: Word read FSwitchTo;
-    function ToTextInternal: string; override;
     procedure ReadSpecific(const aStream: TStream); override;
+  end;
+
+  TPresmasterMessageSwitchTransitionType = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
   end;
 
   TPresmasterMessageSwitchVideo = class(TPresmasterMessageSwitch)
@@ -95,6 +106,16 @@ type
   end;
 
   TPresmasterMessageSwitchAudio = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
+  end;
+
+  TPresmasterMessageSwitchPresetVideo = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
+  end;
+
+  TPresmasterMessageSwitchPresetAudio = class(TPresmasterMessageSwitch)
   protected
     function ToTextInternal: string; override;
   end;
@@ -158,32 +179,47 @@ end;
 class function TPresmasterMessage.IsSimpleSetCommand(const aCommand: byte): boolean;
 begin
   result := (aCommand = SetAUXBusCommand) or (aCommand = SetTXVideo)
-     or (aCommand = SetPSTBusCommand);
+     or (aCommand = SetPresetVideo);
 end;
 
 class function TPresmasterMessage.FormatToText(const aFormat: byte): string;
 begin
   case aFormat of
     FormatSimple:
-      result := 'Simple';
+      result := 'Simple Format';
     FormatExtended:
-      result := 'Extended';
+      result := 'Extended Format';
     else
-      result := 'Unknown';
+      result := 'Unknown Format (' + IntToHex(aFormat,2) + ')';
   end;
 end;
 
-class function TPresmasterMessage.CommandToText(const aFormat: byte; const aCommand: word): string;
-  function CommandAsHex(const aFormat: byte; const aCommand: word): string; inline;
-  begin
-    result := '';
-    if aFormat = FormatSimple then
-      result := IntToHex(aCommand, 2);
-    if aFormat = FormatExtended then
-      result := IntToHex(aCommand, 4);
-    if result = '' then
-      result := 'Invalid format';
+class function TPresmasterMessage.CommandToHex(const aFormat: byte; const aCommand: word): string;
+var
+  commandAsHex: string;
+begin
+  result := FormatToText(aFormat) + ': ';
+  case aFormat of
+    FormatSimple:
+      commandAsHex := IntToHex(aCommand, 2);
+    FormatExtended:
+      commandAsHex := IntToHex(aCommand, 4);
+    else
+      commandAsHex := IntToHex(aCommand, 4);
   end;
+  result := result + commandAsHex;
+end;
+
+class function TPresmasterMessage.CommandToText(const aFormat: byte; const aCommand: word): string;
+begin
+  result := '';
+  if aFormat = FormatSimple then
+    result := SimpleCommandToText(aCommand);
+  if result = '' then
+    result := 'Unknown command: ' + CommandToHex(aFormat, aCommand);
+end;
+
+class function TPresmasterMessage.SimpleCommandToText(const aCommand: word): string;
 begin
   result := '';
   if aCommand = SetAUXBusCommand then
@@ -192,16 +228,19 @@ begin
     result := 'Set TX Video';
   if aCommand = SetTXAudio then
     result := 'Set TX Audio';
-  if aCommand = SetPSTBusCommand then
-    result := 'Set PST Bus';
+  if aCommand = SetPresetVideo then
+    result := 'Set Preset Video';
+  if aCommand = SetPresetAudio then
+    result := 'Set Preset Audio';
   if aCommand = PollCommand then
     result := 'Poll';
   if aCommand = AnswerPollCommand then
     result := 'AnswerPoll';
   if result = '' then
-    result := 'Unknown: ' + CommandAsHex(aFormat, aCommand);
+    result := 'Unknown simple: ' + CommandToHex(FormatSimple, aCommand);
 end;
 
+  // this is where command Delphi classes and command hexadecimal codes
 function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
 begin
   result := nil;
@@ -212,6 +251,10 @@ begin
     result := TPresmasterMessageSwitchVideo;
   if (Format = FormatSimple) and (Command = SetTXAudio) then
     result := TPresmasterMessageSwitchAudio;
+  if (Format = FormatSimple) and (Command = SetPresetVideo) then
+    result := TPresmasterMessageSwitchPresetVideo;
+  if (Format = FormatSimple) and (Command = SetPresetAudio) then
+    result := TPresmasterMessageSwitchPresetAudio;
   {$EndRegion}
   if result = nil then
     result := TPresmasterMessageUnknown;
@@ -278,6 +321,11 @@ begin
   inherited Create;
 end;
 
+function TPresmasterMessageSwitch.ToTextInternal: string;
+begin
+  result := 'Switch to ' + IntToStr(SwitchTo);
+end;
+
 function ReadPresmasterWord(const aStream: TStream): Word;
 var
   nextByte: byte;
@@ -294,25 +342,35 @@ begin
   end;
 end;
 
-function TPresmasterMessageSwitch.ToTextInternal: string;
-begin
-  result := 'Switch to ' + IntToStr(SwitchTo);
-end;
-
 procedure TPresmasterMessageSwitch.ReadSpecific(const aStream: TStream);
 begin
   inherited ReadSpecific(aStream);
   FSwitchTo := ReadPresmasterWord(aStream);
 end;
 
+function TPresmasterMessageSwitchTransitionType.ToTextInternal: string;
+begin
+  result := 'Set Transition Type: ' + IntToS
+end;
+
 function TPresmasterMessageSwitchVideo.ToTextInternal: string;
 begin
-  result := 'Switch video ' + IntToStr(SwitchTo);
+  result := 'Set TX Video ' + IntToStr(SwitchTo);
 end;
 
 function TPresmasterMessageSwitchAudio.ToTextInternal: string;
 begin
-  result := 'Switch audio ' + IntToStr(SwitchTo);
+  result := 'Set TX Audio ' + IntToStr(SwitchTo);
+end;
+
+function TPresmasterMessageSwitchPresetVideo.ToTextInternal: string;
+begin
+  result := 'Set Preset Video ' + IntToStr(SwitchTo);
+end;
+
+function TPresmasterMessageSwitchPresetAudio.ToTextInternal: string;
+begin
+  result := 'Set Preset Audio ' + IntToStr(SwitchTo);
 end;
 
 end.

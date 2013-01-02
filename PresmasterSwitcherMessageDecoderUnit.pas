@@ -1,6 +1,6 @@
 unit PresmasterSwitcherMessageDecoderUnit;
 
-{$Define DecodeMessageDetailedLog}
+{ $Define DecodeMessageDetailedLog}
 
 interface
 
@@ -66,11 +66,9 @@ end;
 
 procedure TPresmasterSwitcherMessageDecoder.DecodeMessages;
 begin
-  Log.Write('***Decode messages...');
   while GetRemainingSize(Stream) > 0 do
   begin
     FMessages.Add(TPresmasterMessage.Create);
-    Log.Write('***Decode message [...]');
     DecodeMessage;
   end;
 end;
@@ -83,15 +81,15 @@ procedure TPresmasterSwitcherMessageDecoder.DecodeMessage;
     {$EndIf}
   end;
 begin
-  {}LogWrite('ReadFormatField...');
+  {$REGION LOG}LogWrite('ReadFormatField...');{$ENDREGION}
   ReadFormatField;
-  {}LogWrite('ReadCommandField...');
+  {$REGION LOG} LogWrite('ReadCommandField...'); {$ENDREGION}
   ReadCommandField;
-  {}LogWrite('ResolveSpecific...');
+  {$REGION} LogWrite('ResolveSpecific...'); {$ENDREGION}
   ResolveSpecific;
-  {}LogWrite('LatestMessage.Specific...');
+  {$REGION} LogWrite('LatestMessage.Specific...'); {$ENDREGION}
   LatestMessage.ReadSpecific(Stream);
-  {}LogWrite('Decoded.');
+  {$REGION} LogWrite('Decoded.'); {$ENDREGION}
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadFormatField;
@@ -133,6 +131,7 @@ var
   command: word;
 begin
   Stream.ReadBuffer(command, 2);
+  ReverseWord(command);
   LatestMessage.Command := command;
 end;
 

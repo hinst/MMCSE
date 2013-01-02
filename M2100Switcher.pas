@@ -46,7 +46,7 @@ type
   public const
     DefaultSendReceiveThreadWaitInterval = 1;
   protected
-    fKeyers: TM2100KeyersStatus;
+    FKeyers: TM2100KeyersStatus;
     fAutomationStatus: boolean;
     procedure AssignDefaults;
     procedure InitializeKeyers;
@@ -58,7 +58,7 @@ type
     function ProcessSubCommand(const aSubCommand: TM2100SubCommand): TM2100SubCommand;
     procedure DestroyThis;
   public
-    property Keyers: TM2100KeyersStatus read fKeyers;
+    property Keyers: TM2100KeyersStatus read FKeyers;
       // this propery should be assigned by the user of this class
     property AutomationStatus: boolean read fAutomationStatus write fAutomationStatus;
     destructor Destroy; override;
@@ -80,7 +80,7 @@ end;
 
 procedure TM2100Switcher.InitializeKeyers;
 begin
-  fKeyers := TM2100KeyersStatus.Create(0);
+  FKeyers := TM2100KeyersStatus.Create(0);
   Keyers.SetDefault;
 end;
 
@@ -206,8 +206,7 @@ end;
 
 procedure TM2100Switcher.DestroyThis;
 begin
-  FreeAndNil(fKeyers);
-  FreeAndNil(fLog);
+  FreeAndNil(FKeyers);
 end;
 
 destructor TM2100Switcher.Destroy;

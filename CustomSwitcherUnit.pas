@@ -57,7 +57,7 @@ type
     procedure LogProcessReceivedMessageStages(const aText: string); inline;
   public
       // external log assignment scheme
-    property Log: TEmptyLog read FLog write FLog;
+    property Log: TEmptyLog read FLog write SetLog;
     property SendMessageMethod: TSendResponceMethod
       read FSendMessageMethod write FSendMessageMethod;
     property DecoderClass: TCustomSwitcherMessageDecoderClass read FDecoderClass;
@@ -207,6 +207,7 @@ begin
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
   LogReceivedMessageContent(messages);
   {$ENDIF}
+  messages.FreeItems;
   ProcessReceivedMessages(messages);
   FreeAndNil(messages);
   LogProcessReceivedMessageStages('End of routine.');
