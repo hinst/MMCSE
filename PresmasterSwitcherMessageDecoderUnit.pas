@@ -1,5 +1,7 @@
 unit PresmasterSwitcherMessageDecoderUnit;
 
+{$Define DecodeMessageDetailedLog}
+
 interface
 
 uses
@@ -23,13 +25,18 @@ type
   protected
     FMessages: TPresmasterSwitcherMessageList;
     function GetResults: TCustomSwitcherMessageList; override;
+    function GetLatestMessage: TPresmasterMessage; inline;
+    procedure SetLatestMessage(const aMessage: TPresmasterMessage); inline;
+    procedure DecodeMessages;
+    procedure DecodeMessage;
     procedure ReadFormatField;
     procedure ReadCommandField;
+    procedure ResolveSpecific;
     procedure ReadSimpleCommand;
     procedure ReadExtendedCommand;
-    procedure ReadUnknown(const aMessage: TPresmasterMessageUnknown);
     procedure ReadSimpleSetMessageTail;
   public
+    property LatestMessage: TPresmasterMessage read GetLatestMessage write SetLatestMessage;
     procedure Decode; override;
   end;
 
@@ -47,31 +54,78 @@ begin
   result := FMessages;
 end;
 
+function TPresmasterSwitcherMessageDecoder.GetLatestMessage: TPresmasterMessage;
+begin
+  result := FMessages[FMessages.Count - 1];
+end;
+
+procedure TPresmasterSwitcherMessageDecoder.SetLatestMessage(const aMessage: TPresmasterMessage);
+begin
+  FMessages[FMessages.Count - 1] := aMessage;
+end;
+
+procedure TPresmasterSwitcherMessageDecoder.DecodeMessages;
+begin
+  Log.Write('***Decode messages...');
+  while GetRemainingSize(Stream) > 0 do
+  begin
+    FMessages.Add(TPresmasterMessage.Create);
+    Log.Write('***Decode message [...]');
+    DecodeMessage;
+  end;
+end;
+
+procedure TPresmasterSwitcherMessageDecoder.DecodeMessage;
+  procedure LogWrite(const s: string);
+  begin
+    {$IfDef DecodeMessageDetailedLog}
+    Log.Write('TPresmasterSwitcherMessageDecoder.DecodeMessage', s);
+    {$EndIf}
+  end;
+begin
+  {}LogWrite('ReadFormatField...');
+  ReadFormatField;
+  {}LogWrite('ReadCommandField...');
+  ReadCommandField;
+  {}LogWrite('ResolveSpecific...');
+  ResolveSpecific;
+  {}LogWrite('LatestMessage.Specific...');
+  LatestMessage.ReadSpecific(Stream);
+  {}LogWrite('Decoded.');
+end;
+
 procedure TPresmasterSwitcherMessageDecoder.ReadFormatField;
 var
   messageFormat: byte;
 begin
   Stream.ReadBuffer(messageFormat, 1);
-  FMessage.Format := messageFormat;
-  Assert(FMessage.IsValidFormat);
+  LatestMessage.Format := messageFormat;
+  Assert(LatestMessage.IsValidFormat);
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadCommandField;
 begin
-  if FMessage.Format = FMessage.FormatSimple then
+  if LatestMessage.Format = TPresmasterMessage.FormatSimple then
     ReadSimpleCommand;
-  if FMessage.Format = FMessage.FormatExtended then
+  if LatestMessage.Format = TPresmasterMessage.FormatExtended then
     ReadExtendedCommand;
+end;
+
+procedure TPresmasterSwitcherMessageDecoder.ResolveSpecific;
+var
+  m: TPresmasterMessage;
+begin
+  m := LatestMessage;
+  TPresmasterMessage.ResolveSpecific(m);
+  LatestMessage := m;
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadSimpleCommand;
 var
   command: byte;
-var
-  transformedMessage: TPresmasterMessage;
 begin
   Stream.ReadBuffer(command, 1);
-  FMessage.Command := command;
+  LatestMessage.Command := command;
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadExtendedCommand;
@@ -79,7 +133,7 @@ var
   command: word;
 begin
   Stream.ReadBuffer(command, 2);
-  FMessage.Command := command;
+  LatestMessage.Command := command;
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadSimpleSetMessageTail;
@@ -94,28 +148,9 @@ begin
     sourceNumber := formatTail;
 end;
 
-procedure TPresmasterSwitcherMessageDecoder.ReadUnknown(const aMessage: TPresmasterMessageUnknown);
-var
-  remainingSize: integer;
-  beginningSize: integer;
-begin
-  AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
-  AssertAssigned(Stream, 'Stream', TVariableType.Prop);
-  remainingSize := CalculateRemainingSize(Stream);
-  beginningSize := Stream.Position;
-  StreamRewind(Stream);
-  aMessage.Beginning.CopyFrom(Stream, beginningSize);
-  //log.Write('remaining size is ' + IntToStr(remainingSize));
-  aMessage.Rest.CopyFrom(Stream, remainingSize);
-end;
-
 procedure TPresmasterSwitcherMessageDecoder.Decode;
 begin
-  ReadFormatField;
-  ReadCommandField;
-  TPresmasterMessage.ResolveSpecific(FMessage);
-  if FMessage is TPresmasterMessageUnknown then
-    ReadUnknown(FMessage as TPresmasterMessageUnknown);
+  DecodeMessages;
 end;
 
 end.

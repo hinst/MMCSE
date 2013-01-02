@@ -8,11 +8,12 @@
   resources were bound to the produced executable.
 */
 
-#define ComConst_SOleError 65184
-#define ComConst_SNoMethod 65185
-#define ComConst_SVarNotObject 65186
-#define ComConst_STooManyParams 65187
-#define ComStrs_sUDAssociated 65188
+#define JclResources_RsWin32Error 65184
+#define ComConst_SOleError 65185
+#define ComConst_SNoMethod 65186
+#define ComConst_SVarNotObject 65187
+#define ComConst_STooManyParams 65188
+#define ComStrs_sUDAssociated 65189
 #define JclResources_RsIntelCacheDescrDC 65200
 #define JclResources_RsIntelCacheDescrDD 65201
 #define JclResources_RsIntelCacheDescrDE 65202
@@ -27,8 +28,8 @@
 #define JclResources_RsIntelCacheDescrFF 65211
 #define JclResources_RsInvalidMMFName 65212
 #define JclResources_RsInvalidMMFEmpty 65213
-#define JclResources_RsEUnexpectedEOSeq 65214
-#define JclResources_RsWin32Error 65215
+#define JclResources_RsCasedUnicodeChar 65214
+#define JclResources_RsEUnexpectedEOSeq 65215
 #define JclResources_RsIntelCacheDescr86 65216
 #define JclResources_RsIntelCacheDescr87 65217
 #define JclResources_RsIntelCacheDescrB0 65218
@@ -351,6 +352,7 @@
 #define SysConst_SInvalidOp 65535
 STRINGTABLE
 BEGIN
+	JclResources_RsWin32Error,	"Win32 error: %s (%u)%s%s"
 	ComConst_SOleError,	"OLE error %.8x"
 	ComConst_SNoMethod,	"Method '%s' not supported by automation object"
 	ComConst_SVarNotObject,	"Variant does not reference an automation object"
@@ -370,8 +372,8 @@ BEGIN
 	JclResources_RsIntelCacheDescrFF,	"CPUID leaf 2 does not report cache descriptor information, use CPUID leaf 4 to query cache parameters"
 	JclResources_RsInvalidMMFName,	"Invalid MMF name \"%s\""
 	JclResources_RsInvalidMMFEmpty,	"The MMF named \"%s\" cannot be created empty"
+	JclResources_RsCasedUnicodeChar,	"cased Unicode character > $FFFFFF found"
 	JclResources_RsEUnexpectedEOSeq,	"Unexpected end of sequence"
-	JclResources_RsWin32Error,	"Win32 error: %s (%u)%s%s"
 	JclResources_RsIntelCacheDescr86,	"2nd-level cache: 512 KByte, 4-way set associative, 64 byte line size"
 	JclResources_RsIntelCacheDescr87,	"2nd-level cache: 1 MByte, 8-way set associative, 64 byte line size"
 	JclResources_RsIntelCacheDescrB0,	"Instruction TLB: 4 KByte pages, 4-way set associative, 128 entries"
@@ -695,8 +697,8 @@ BEGIN
 END
 
 /* c:\program files (x86)\codegear\rad studio\5.0\lib\Controls.res */
-/* C:\Users\hinst\Docs\Pro\jcl-2.4.1.4571\lib\d11\JclUnicode.res */
 /* c:\program files (x86)\codegear\rad studio\5.0\lib\Buttons.res */
+/* C:\Users\hinst\Docs\Pro\jcl-2.4.1.4571\lib\d11\debug\JclUnicode.res */
 /* c:\program files (x86)\codegear\rad studio\5.0\lib\ExtDlgs.res */
 /* D:\development\LogLibraryForDelphi\log-view-panel.RES */
 /* D:\Development\MMCSE\mmcse_project.drf */

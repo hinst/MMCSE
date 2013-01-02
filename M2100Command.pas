@@ -380,7 +380,7 @@ end;
 
 procedure TM2100SubCommandUnknown.LoadFromStream(const aStream: TStream);
 begin
-  StreamRewind(UnknownData);
+  Rewind(UnknownData);
   UnknownData.CopyFrom(aStream, UnknownData.Size);
 end;
 

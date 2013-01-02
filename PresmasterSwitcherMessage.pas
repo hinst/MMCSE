@@ -8,6 +8,8 @@ uses
   SysUtils,
   Classes,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
   UStreamUtilities,
 
   CustomSwitcherMessageUnit;
@@ -27,7 +29,8 @@ type
     {$EndRegion}
     {$Region Simple Commands}
     SetAUXBusCommand = $08;
-    SetPGMBusCommand = $09;
+    SetTXVideo = $09;
+    SetTXAudio = $0A;
     SetPSTBusCommand = $0B;
     PollCommand = $1E;
     AnswerPollCommand = $5E;
@@ -50,6 +53,7 @@ type
     class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
     function DetectClass: TPresmasterMessageClass;
     class procedure ResolveSpecific(var aResult: TPresmasterMessage);
+    procedure ReadSpecific(const aStream: TStream); virtual;
   end;
 
   TPresmasterMessageUnknown = class(TPresmasterMessage)
@@ -62,6 +66,7 @@ type
   public
     property Beginning: TStream read FBeginning;
     property Rest: TStream read FRest;
+    procedure ReadSpecific(const aStream: TStream); override;
     destructor Destroy; override;
   end;
 
@@ -71,6 +76,27 @@ type
   TPresmasterMessagePollAnswer = class(TPresmasterMessage)
   public
     constructor Create; override;
+  end;
+
+  TPresmasterMessageSwitch = class(TPresmasterMessage)
+  public
+    constructor Create; override;
+  protected
+    FSwitchTo: Word;
+  public
+    property SwitchTo: Word read FSwitchTo;
+    function ToTextInternal: string; override;
+    procedure ReadSpecific(const aStream: TStream); override;
+  end;
+
+  TPresmasterMessageSwitchVideo = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
+  end;
+
+  TPresmasterMessageSwitchAudio = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
   end;
 
 implementation
@@ -131,7 +157,7 @@ end;
 
 class function TPresmasterMessage.IsSimpleSetCommand(const aCommand: byte): boolean;
 begin
-  result := (aCommand = SetAUXBusCommand) or (aCommand = SetPGMBusCommand)
+  result := (aCommand = SetAUXBusCommand) or (aCommand = SetTXVideo)
      or (aCommand = SetPSTBusCommand);
 end;
 
@@ -162,8 +188,10 @@ begin
   result := '';
   if aCommand = SetAUXBusCommand then
     result := 'Set AUX Bus';
-  if aCommand = SetPGMBusCommand then
-    result := 'Set PGM Bus';
+  if aCommand = SetTXVideo then
+    result := 'Set TX Video';
+  if aCommand = SetTXAudio then
+    result := 'Set TX Audio';
   if aCommand = SetPSTBusCommand then
     result := 'Set PST Bus';
   if aCommand = PollCommand then
@@ -180,6 +208,10 @@ begin
   {$Region TypeDetection}
   if (Format = FormatSimple) and (Command = PollCommand) then
     result := TPresmasterMessagePoll;
+  if (Format = FormatSimple) and (Command = SetTXVideo) then
+    result := TPresmasterMessageSwitchVideo;
+  if (Format = FormatSimple) and (Command = SetTXAudio) then
+    result := TPresmasterMessageSwitchAudio;
   {$EndRegion}
   if result = nil then
     result := TPresmasterMessageUnknown;
@@ -190,8 +222,13 @@ var
   result: TPresmasterMessage;
 begin
   result := CreateSpecific(aResult);
+  result.Assign(aResult);
   aResult.Free;
   aResult := result;
+end;
+
+procedure TPresmasterMessage.ReadSpecific(const aStream: TStream);
+begin
 end;
 
 
@@ -210,6 +247,20 @@ begin
     + StreamToText(Rest, true);
 end;
 
+procedure TPresmasterMessageUnknown.ReadSpecific(const aStream: TStream);
+var
+  remainingSize: integer;
+  beginningSize: integer;
+begin
+  AssertAssigned(aStream, 'aStream', TVariableType.Argument);
+  remainingSize := GetRemainingSize(aStream);
+  beginningSize := aStream.Position;
+  Rewind(aStream);
+  Beginning.CopyFrom(aStream, beginningSize);
+  //log.Write('remaining size is ' + IntToStr(remainingSize));
+  Rest.CopyFrom(aStream, remainingSize);
+end;
+
 destructor TPresmasterMessageUnknown.Destroy;
 begin
   FreeAndNil(FBeginning);
@@ -220,8 +271,48 @@ end;
 constructor TPresmasterMessagePollAnswer.Create;
 begin
   inherited Create;
-  Format := FormatSimple;
-  Command := AnswerPollCommand;
+end;
+
+constructor TPresmasterMessageSwitch.Create;
+begin
+  inherited Create;
+end;
+
+function ReadPresmasterWord(const aStream: TStream): Word;
+var
+  nextByte: byte;
+  aa, bb: byte;
+begin
+  aStream.Read(nextByte, 1);
+  if nextByte <> $7F then
+    result := nextByte
+  else
+  begin
+    aStream.Read(aa, 1);
+    aStream.Read(bb, 1);
+    result := (bb and $7F) or ((Word(aa) and $7F) shl 7);
+  end;
+end;
+
+function TPresmasterMessageSwitch.ToTextInternal: string;
+begin
+  result := 'Switch to ' + IntToStr(SwitchTo);
+end;
+
+procedure TPresmasterMessageSwitch.ReadSpecific(const aStream: TStream);
+begin
+  inherited ReadSpecific(aStream);
+  FSwitchTo := ReadPresmasterWord(aStream);
+end;
+
+function TPresmasterMessageSwitchVideo.ToTextInternal: string;
+begin
+  result := 'Switch video ' + IntToStr(SwitchTo);
+end;
+
+function TPresmasterMessageSwitchAudio.ToTextInternal: string;
+begin
+  result := 'Switch audio ' + IntToStr(SwitchTo);
 end;
 
 end.

@@ -13,6 +13,7 @@ interface
 uses
   SysUtils,
   Classes,
+  Contnrs,
 
   UAdditionalExceptions,
   UAdditionalTypes,
@@ -96,7 +97,7 @@ begin
   try
     AssertAssigned(aMessage, 'aMessage', TVariableType.Argument);
     AssertAssigned(DecoderClass, 'DecoderClass', TVariableType.Prop);
-    StreamRewind(aMessage);
+    Rewind(aMessage);
     result := DecoderClass.DecodeThis(aMessage);
     AssertAssigned(result, 'result', TVariableType.Local);
   except
@@ -156,7 +157,7 @@ begin
     {$IFDEF LOG_MESSAGE_STREAM_BEFORE_SENDING}
     Log.Write('send message stream', StreamToText(aMessage, true));
     {$ENDIF}
-    StreamRewind(aMessage);
+    Rewind(aMessage);
     SendMessageMethod(aMessage);
     result := true;
   except
@@ -170,6 +171,7 @@ begin
 end;
 
 procedure TCustomSwitcher.ProcessReceivedStream(const aMessage: TStream);
+
   procedure LogReceivedMessageContent(const aMessages: TCustomSwitcherMessageList);
   var
     i: integer;
@@ -184,16 +186,15 @@ procedure TCustomSwitcher.ProcessReceivedStream(const aMessage: TStream);
       );
     end;
   end;
+
 var
   messages: TCustomSwitcherMessageList;
-  encodedAnswerMessage: TStream;
-  seamr: boolean; // sendEncodedAnswerMessageResult
 begin
   LogProcessReceivedMessageStages('Received...');
   {$IFDEF LOG_MESSAGE_STREAM_BEFORE_DECODING}
   Log.Write('receive message stream', StreamToText(aMessage, true));
   {$ENDIF}
-  {$IFNDEF NODECODE_MODE}
+  {$IFDEF NODECODE_MODE}
   exit; // ->
   {$ENDIF}
   LogProcessReceivedMessageStages('Decoding...');
@@ -255,8 +256,11 @@ var
 begin
   m := SafeEncodeMessage(aMessage);
   if m = nil then
+  begin
+    result := false;
     exit;
-  StreamRewind(m);
+  end;
+  Rewind(m);
   LogProcessReceivedMessageStages('Sending...');
   result := SafeSendMessage(m);
   m.Free;
@@ -280,6 +284,4 @@ begin
   inherited Destroy;
 end;
 
-initialization
-finalization
 end.

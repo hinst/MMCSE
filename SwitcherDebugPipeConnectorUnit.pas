@@ -148,7 +148,7 @@ begin
     begin
       if @OnIncomingMessage <> nil then
       begin
-        StreamRewind(incomingMessage);
+        Rewind(incomingMessage);
         OnIncomingMessage(incomingMessage);
       end;
       FreeAndNil(incomingMessage);

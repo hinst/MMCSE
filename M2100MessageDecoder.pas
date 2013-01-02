@@ -33,7 +33,7 @@ type
   public
       // instance does not owns the aStream
     constructor Create(const aStream: TStream); override;
-  private
+  protected
     fLog: TCustomLog;
     fMessage: TM2100Message;
     function GetLastCommand: TM2100Command;
@@ -70,10 +70,10 @@ type
   public
     constructor Create(const aDeclared, aActual: byte);
   private
-    fActual, fDeclared: byte;
+    FActual, FDeclared: byte;
   public
-    property Actual: byte read fActual;
-    property Declared: byte read fDeclared;
+    property Actual: byte read FActual;
+    property Declared: byte read FDeclared;
   end;
 
 implementation
@@ -271,8 +271,8 @@ end;
 constructor EM2100MessageDecoderCheckSumIncorrect.Create(const aDeclared, aActual: byte);
 begin
   inherited Create('');
-  fActual := aActual;
-  fDeclared := aDeclared;
+  FActual := aActual;
+  FDeclared := aDeclared;
   Message := 'Actual: $' + IntToHex(Actual, 2) + ' = ' + IntToHex(Declared, 2) + '$ :declared';
 end;
 
