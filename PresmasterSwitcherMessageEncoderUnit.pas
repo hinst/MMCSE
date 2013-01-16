@@ -67,6 +67,7 @@ var
 begin
   command := FMessage.Command;
   Stream.Write(command, 1);
+  FMessage.WriteSpecific(Stream);
 end;
 
 procedure TPresmasterSwitcherMessageEncoder.WriteExtendedMessage;

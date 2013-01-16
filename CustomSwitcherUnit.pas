@@ -207,8 +207,8 @@ begin
   {$IFDEF LOG_MESSAGE_CONTENT_BEFORE_PROCESSING}
   LogReceivedMessageContent(messages);
   {$ENDIF}
-  messages.FreeItems;
   ProcessReceivedMessages(messages);
+  messages.FreeClear;
   FreeAndNil(messages);
   LogProcessReceivedMessageStages('End of routine.');
 end;

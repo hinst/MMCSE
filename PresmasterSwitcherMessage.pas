@@ -35,6 +35,8 @@ type
     SetPresetVideo = $0B;
     SetPresetAudio = $0C;
     PollCommand = $1E;
+    AnswerSwitchVideoPresetCommand = $4B;
+    AnswerSwitchAudioPresetCommand = $4C;
     AnswerPollCommand = $5E;
     {$EndRegion}
     {$Region ExtendedCommands}
@@ -60,6 +62,7 @@ type
     function DetectClass: TPresmasterMessageClass;
     class procedure ResolveSpecific(var aResult: TPresmasterMessage);
     procedure ReadSpecific(const aStream: TStream); virtual;
+    procedure WriteSpecific(const aStream: TStream); virtual;
   end;
 
   TPresmasterMessageUnknown = class(TPresmasterMessage)
@@ -86,13 +89,15 @@ type
 
   TPresmasterMessageSwitch = class(TPresmasterMessage)
   public
-    constructor Create; override;
+    constructor Create; overload; override;
+    constructor Create(const aSwitchTo: Word); overload;
   protected
     FSwitchTo: Word;
     function ToTextInternal: string; override;
   public
-    property SwitchTo: Word read FSwitchTo;
+    property SwitchTo: Word read FSwitchTo write FSwitchTo;
     procedure ReadSpecific(const aStream: TStream); override;
+    procedure WriteSpecific(const aStream: TStream); override;
   end;
 
   TPresmasterMessageSwitchTransitionType = class(TPresmasterMessageSwitch)
@@ -115,7 +120,21 @@ type
     function ToTextInternal: string; override;
   end;
 
+  TPresmasterMessageSwitchPresetVideoAnswer = class(TPresmasterMessageSwitch)
+  public
+    constructor Create; override;
+  protected
+    function ToTextInternal: string; override;
+  end;
+
   TPresmasterMessageSwitchPresetAudio = class(TPresmasterMessageSwitch)
+  protected
+    function ToTextInternal: string; override;
+  end;
+
+  TPresmasterMessageSwitchPresetAudioAnswer = class(TPresmasterMessageSwitch)
+  public
+    constructor Create; override;
   protected
     function ToTextInternal: string; override;
   end;
@@ -245,6 +264,8 @@ function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
 begin
   result := nil;
   {$Region TypeDetection}
+  if (Format = FormatSimple) and (Command = SetTransitionType)then
+    result := TPresmasterMessageSwitchTransitionType;
   if (Format = FormatSimple) and (Command = PollCommand) then
     result := TPresmasterMessagePoll;
   if (Format = FormatSimple) and (Command = SetTXVideo) then
@@ -271,6 +292,10 @@ begin
 end;
 
 procedure TPresmasterMessage.ReadSpecific(const aStream: TStream);
+begin
+end;
+
+procedure TPresmasterMessage.WriteSpecific(const aStream: TStream);
 begin
 end;
 
@@ -314,11 +339,21 @@ end;
 constructor TPresmasterMessagePollAnswer.Create;
 begin
   inherited Create;
+  Format := FormatSimple;
+  Command := AnswerPollCommand;
 end;
 
+// You should assign Command property in derived constructors
 constructor TPresmasterMessageSwitch.Create;
 begin
   inherited Create;
+  Format := FormatSimple;
+end;
+
+constructor TPresmasterMessageSwitch.Create(const aSwitchTo: Word);
+begin
+  Create;
+  SwitchTo := aSwitchTo;
 end;
 
 function TPresmasterMessageSwitch.ToTextInternal: string;
@@ -326,6 +361,7 @@ begin
   result := 'Switch to ' + IntToStr(SwitchTo);
 end;
 
+// not sure about whether this function is implemented correctly or not
 function ReadPresmasterWord(const aStream: TStream): Word;
 var
   nextByte: byte;
@@ -342,15 +378,38 @@ begin
   end;
 end;
 
+procedure WritePresmasterWord(const aStream: TStream; const aWord: Word);
+var
+  x: byte;
+begin
+  AssertAssigned(aStream, 'aStream', TVariableType.Argument);
+  if aWord < $7F then
+  begin
+    x := byte(aWord);
+    aStream.Write(x, 1)
+  end
+  else
+  begin
+    x := byte(aWord) and $7F;
+    aStream.Write(x, 1);
+    x := byte(aWord shr 7) and $7F;
+    aStream.Write(x, 1);
+  end;
+end;
+
 procedure TPresmasterMessageSwitch.ReadSpecific(const aStream: TStream);
 begin
-  inherited ReadSpecific(aStream);
-  FSwitchTo := ReadPresmasterWord(aStream);
+  SwitchTo := ReadPresmasterWord(aStream);
+end;
+
+procedure TPresmasterMessageSwitch.WriteSpecific(const aStream: TStream);
+begin
+  WritePresmasterWord(aStream, SwitchTo);
 end;
 
 function TPresmasterMessageSwitchTransitionType.ToTextInternal: string;
 begin
-  result := 'Set Transition Type: ' + IntToS
+  result := 'Set Transition Type: ' + IntToStr(SwitchTo);
 end;
 
 function TPresmasterMessageSwitchVideo.ToTextInternal: string;
@@ -368,9 +427,32 @@ begin
   result := 'Set Preset Video ' + IntToStr(SwitchTo);
 end;
 
+constructor TPresmasterMessageSwitchPresetVideoAnswer.Create;
+begin
+  inherited Create;
+  Command := AnswerSwitchVideoPresetCommand;
+end;
+
+function TPresmasterMessageSwitchPresetVideoAnswer.ToTextInternal: string;
+begin
+  result := 'Set Preset Video Answer ' + IntToStr(SwitchTo);
+end;
+
+constructor TPresmasterMessageSwitchPresetAudioAnswer.Create;
+begin
+  inherited Create;
+  Command := AnswerSwitchAudioPresetCommand;
+end;
+
 function TPresmasterMessageSwitchPresetAudio.ToTextInternal: string;
 begin
   result := 'Set Preset Audio ' + IntToStr(SwitchTo);
 end;
+
+function TPresmasterMessageSwitchPresetAudioAnswer.ToTextInternal: string;
+begin
+  result := 'Set Preset Audio Answer ' + IntToStr(SwitchTo);
+end;
+
 
 end.
