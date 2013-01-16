@@ -66,7 +66,7 @@ begin
   decoder := self.Create(aStream);
   {$IfDef EnableDefaultMMCSELog}
   decoder.Log := TLog.Create(GlobalLogManager, 'Decoder[' + self.ClassName + ']');
-  {$ENDIF}
+  {$EndIf}
   try
     decoder.Decode;
     result := decoder.Results;
