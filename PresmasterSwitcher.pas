@@ -77,6 +77,18 @@ begin
   result := nil;
   if aMessage is TPresmasterMessagePoll then
     result := TPresmasterMessagePollAnswer.Create;
+  {$Region Switch Preset}
+  if aMessage is TPresmasterMessageSwitchPresetVideo then
+    result :=
+      TPresmasterMessageSwitchPresetVideoAnswer.Create(
+        (aMessage as TPresmasterMessageSwitchPresetVideo).SwitchTo
+      );
+  if aMessage is TPresmasterMessageSwitchPresetAudio then
+    result :=
+      TPresmasterMessageSwitchPresetAudioAnswer.Create(
+        (aMessage as TPresmasterMessageSwitchPresetAudio).SwitchTo
+      );
+  {$EndRegion}
 end;
 
 initialization

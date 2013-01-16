@@ -8,6 +8,9 @@ uses
   SysUtils,
   Classes,
 
+  UAdditionalTypes,
+  UAdditionalExceptions,
+
   EmptyLogEntity,
   {$IfDef EnableDefaultMMCSELog}
   DefaultLogEntity,
@@ -44,6 +47,7 @@ implementation
 
 constructor TCustomSwitcherMessageDecoder.Create(const aStream: TStream);
 begin
+  AssertAssigned(aStream, 'aStream', TVariableType.Prop);
   inherited Create;
   FLog := TEmptyLog.Create;
   FStream := aStream;

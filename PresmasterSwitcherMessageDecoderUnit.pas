@@ -11,6 +11,7 @@ uses
   UAdditionalTypes,
   UAdditionalExceptions,
   UStreamUtilities,
+  UTextUtilities,
 
   CustomSwitcherMessageUnit,
   CustomSwitcherMessageListUnit,
@@ -25,7 +26,7 @@ type
   protected
     FMessages: TPresmasterSwitcherMessageList;
     function GetResults: TCustomSwitcherMessageList; override;
-    function GetLatestMessage: TPresmasterMessage; inline;
+    function GetLatestMessage: TPresmasterMessage;
     procedure SetLatestMessage(const aMessage: TPresmasterMessage); inline;
     procedure DecodeMessages;
     procedure DecodeMessage;
@@ -56,6 +57,8 @@ end;
 
 function TPresmasterSwitcherMessageDecoder.GetLatestMessage: TPresmasterMessage;
 begin
+  AssertAssigned(FMessages, 'FMessages', TVariableType.Field);
+  Assert(FMessages.Count > 0, 'Can not GetLatestMessage: FMessages.Count > 0 failed');
   result := FMessages[FMessages.Count - 1];
 end;
 
@@ -65,10 +68,14 @@ begin
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.DecodeMessages;
+var
+  nextMessage: TPresmasterMessage;
 begin
   while GetRemainingSize(Stream) > 0 do
   begin
-    FMessages.Add(TPresmasterMessage.Create);
+    AssertAssigned(FMessages, 'FMessages', TVariableType.Field);
+    nextMessage := TPresmasterMessage.Create;
+    FMessages.Add(nextMessage);
     DecodeMessage;
   end;
 end;
@@ -95,10 +102,15 @@ end;
 procedure TPresmasterSwitcherMessageDecoder.ReadFormatField;
 var
   messageFormat: byte;
+  latestMessage: TPresmasterMessage;
 begin
+  latestMessage := self.LatestMessage;
+  Log.Write('latestMessage pointer: ' + PointerToText(latestMessage));
+  AssertAssigned(latestMessage, 'latestMessage', TVariableType.Local);
+  AssertAssigned(Stream, 'Stream', TVariableType.Prop);
   Stream.ReadBuffer(messageFormat, 1);
-  LatestMessage.Format := messageFormat;
-  Assert(LatestMessage.IsValidFormat);
+  latestMessage.Format := messageFormat;
+  Assert(latestMessage.IsValidFormat);
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadCommandField;
