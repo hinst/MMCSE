@@ -22,15 +22,11 @@ implementation
 function TPresmasterSwitcherMessageList.GetItem(const aIndex: integer): TPresmasterMessage;
 begin
   result := TPresmasterMessage(inherited GetItem(aIndex));
-  if result <> nil then
-    AssertType(result, TPresmasterMessage);
 end;
 
 procedure TPresmasterSwitcherMessageList.SetItem(const aIndex: integer;
   const aMessage: TPresmasterMessage);
 begin
-  if aMessage <> nil then
-    AssertType(aMessage as TObject, TPresmasterMessage);
   inherited SetItem(aIndex, aMessage);
 end;
 

@@ -32,23 +32,13 @@ begin
 end;
 
 function TCustomSwitcherMessageList.GetItem(const aIndex: integer): TCustomSwitcherMessage;
-var
-  item: TObject;
 begin
-  item := inherited GetItem(aIndex);
-  if
-    item = nil
-  then
-    result := item as TCustomSwitcherMessage
-  else
-    result := nil;
+  result := TCustomSwitcherMessage(inherited GetItem(aIndex));
 end;
 
 procedure TCustomSwitcherMessageList.SetItem(const aIndex: integer;
   const aItem: TCustomSwitcherMessage);
 begin
-  if aItem <> nil then
-    AssertType(aItem, TCustomSwitcherMessage);
   inherited SetItem(aIndex, aItem);
 end;
 

@@ -33,6 +33,7 @@ type
     procedure ReadFormatField;
     procedure ReadCommandField;
     procedure ResolveSpecific;
+    procedure ReadSpecific;
     procedure ReadSimpleCommand;
     procedure ReadExtendedCommand;
     procedure ReadSimpleSetMessageTail;
@@ -95,7 +96,7 @@ begin
   {$REGION} LogWrite('ResolveSpecific...'); {$ENDREGION}
   ResolveSpecific;
   {$REGION} LogWrite('LatestMessage.Specific...'); {$ENDREGION}
-  LatestMessage.ReadSpecific(Stream);
+  ReadSpecific;
   {$REGION} LogWrite('Decoded.'); {$ENDREGION}
 end;
 
@@ -105,7 +106,6 @@ var
   latestMessage: TPresmasterMessage;
 begin
   latestMessage := self.LatestMessage;
-  Log.Write('latestMessage pointer: ' + PointerToText(latestMessage));
   AssertAssigned(latestMessage, 'latestMessage', TVariableType.Local);
   AssertAssigned(Stream, 'Stream', TVariableType.Prop);
   Stream.ReadBuffer(messageFormat, 1);
@@ -126,6 +126,7 @@ var
   m: TPresmasterMessage;
 begin
   m := LatestMessage;
+  AssertAssigned(m, 'm', TVariableType.Local);
   TPresmasterMessage.ResolveSpecific(m);
   LatestMessage := m;
 end;
@@ -157,6 +158,12 @@ begin
     Stream.ReadBuffer(sourceNumber, 2)
   else
     sourceNumber := formatTail;
+end;
+
+procedure TPresmasterSwitcherMessageDecoder.ReadSpecific;
+begin
+  AssertAssigned(LatestMessage, 'LatestMessage', TVariableType.Prop);
+  LatestMessage.ReadSpecific(stream);
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.Decode;
