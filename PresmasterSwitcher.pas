@@ -77,6 +77,12 @@ begin
   result := nil;
   if aMessage is TPresmasterMessagePoll then
     result := TPresmasterMessagePollAnswer.Create;
+  {$Region SwitchTransitionType}
+  if aMessage is TPresmasterMessageSwitchTransitionType then
+    result := TPresmasterMessageSwitchTransitionTypeReport.Create(
+      (aMessage as TPresmasterMessageSwitchTransitionType).SwitchTo
+    );
+  {$EndRegion}
   {$Region Switch Preset}
   if aMessage is TPresmasterMessageSwitchPresetVideo then
     result :=

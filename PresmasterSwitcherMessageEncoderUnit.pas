@@ -19,10 +19,12 @@ type
   protected
     FMessage: TPresmasterMessage;
     procedure Encode; override;
+    procedure WriteMessage;
     procedure WriteMessageFormat;
-    procedure WriteSimpleMessage;
-    procedure WriteSimpleMessageCommand;
-    procedure WriteExtendedMessage;
+    procedure WriteCommandCode;
+    procedure WriteSimpleCommandCode;
+    procedure WriteExtendedCommandCode;
+    procedure WriteMessageSpecific;
   end;
 
 implementation
@@ -37,11 +39,14 @@ end;
 
 procedure TPresmasterSwitcherMessageEncoder.Encode;
 begin
+  WriteMessage;
+end;
+
+procedure TPresmasterSwitcherMessageEncoder.WriteMessage;
+begin
   WriteMessageFormat;
-  if FMessage.Format = FMessage.FormatSimple then
-    WriteSimpleMessage;
-  if FMessage.Format = FMessage.FormatExtended then
-    WriteExtendedMessage;
+  WriteCommandCode;
+  WriteMessageSpecific;
 end;
 
 procedure TPresmasterSwitcherMessageEncoder.WriteMessageFormat;
@@ -53,7 +58,15 @@ begin
   Stream.Write(format, 1);
 end;
 
-procedure TPresmasterSwitcherMessageEncoder.WriteSimpleMessage;
+procedure TPresmasterSwitcherMessageEncoder.WriteCommandCode;
+begin
+  if FMessage.Format = FMessage.FormatSimple then
+    WriteSimpleCommandCode;
+  if FMessage.Format = FMessage.FormatExtended then
+    WriteExtendedCommandCode;
+end;
+
+procedure TPresmasterSwitcherMessageEncoder.WriteSimpleCommandCode;
 var
   command: byte;
 begin
@@ -61,18 +74,25 @@ begin
   Stream.Write(command, 1);
 end;
 
-procedure TPresmasterSwitcherMessageEncoder.WriteSimpleMessageCommand;
+procedure TPresmasterSwitcherMessageEncoder.WriteExtendedCommandCode;
 var
-  command: byte;
+  command: word;
 begin
   command := FMessage.Command;
-  Stream.Write(command, 1);
+end;
+
+procedure TPresmasterSwitcherMessageEncoder.WriteMessageSpecific;
+begin
   FMessage.WriteSpecific(Stream);
 end;
 
-procedure TPresmasterSwitcherMessageEncoder.WriteExtendedMessage;
-begin
-  // not implemented
-end;
-
 end.
+
+
+
+
+
+
+
+
+

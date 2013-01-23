@@ -12,6 +12,10 @@ uses
   UAdditionalExceptions,
   UStreamUtilities,
 
+  EmptyLogEntity,
+  DefaultLogEntity,
+
+  CommonUnit,
   CustomSwitcherMessageUnit;
 
 type
@@ -35,6 +39,7 @@ type
     SetPresetVideo = $0B;
     SetPresetAudio = $0C;
     PollCommand = $1E;
+    AnswerSwitchTransitionType = $41;
     AnswerSwitchVideoPresetCommand = $4B;
     AnswerSwitchAudioPresetCommand = $4C;
     AnswerPollCommand = $5E;
@@ -44,10 +49,12 @@ type
   protected
     FFormat: byte;
     FCommand: word;
+    FLog: TEmptyLog;
     function ToTextInternal: string; override;
   public
     property Format: byte read FFormat write FFormat;
     property Command: word read FCommand write FCommand;
+    property Log: TEmptyLog read FLog;
     function IsValidFormat: boolean; overload;
     function IsSimpleSetCommand: boolean; overload;
     function FormatToText: string; overload;
@@ -59,7 +66,7 @@ type
     class function CommandToHex(const aFormat: byte; const aCommand: word): string;
     class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
     class function SimpleCommandToText(const aCommand: word): string;
-    function DetectClass: TPresmasterMessageClass;
+    function DetectClass: TPresmasterMessageClass; // CLASS <-> HEX CODE
     class procedure ResolveSpecific(var aResult: TPresmasterMessage);
     procedure ReadSpecific(const aStream: TStream); virtual;
     procedure WriteSpecific(const aStream: TStream); virtual;
@@ -100,21 +107,33 @@ type
     procedure WriteSpecific(const aStream: TStream); override;
   end;
 
+  // HEX 01
   TPresmasterMessageSwitchTransitionType = class(TPresmasterMessageSwitch)
   protected
     function ToTextInternal: string; override;
   end;
 
+  // HEX 41 ->
+  TPresmasterMessageSwitchTransitionTypeReport = class(TPresmasterMessageSwitch)
+  public
+    constructor Create; override;
+  protected
+    function ToTextInternal: string; override;
+  end;
+
+  // HEX 09
   TPresmasterMessageSwitchVideo = class(TPresmasterMessageSwitch)
   protected
     function ToTextInternal: string; override;
   end;
 
+  // HEX 0A
   TPresmasterMessageSwitchAudio = class(TPresmasterMessageSwitch)
   protected
     function ToTextInternal: string; override;
   end;
 
+  // HEX 0B
   TPresmasterMessageSwitchPresetVideo = class(TPresmasterMessageSwitch)
   protected
     function ToTextInternal: string; override;
@@ -144,6 +163,7 @@ implementation
 constructor TPresmasterMessage.Create;
 begin
   inherited Create;
+  FLog := TLog.Create(GlobalLogManager, self.ClassName);
 end;
 
 class function TPresmasterMessage.CreateSpecific(const aMessage: TPresmasterMessage)
@@ -264,7 +284,7 @@ function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
 begin
   result := nil;
   {$Region TypeDetection}
-  if (Format = FormatSimple) and (Command = SetTransitionType)then
+  if (Format = FormatSimple) and (Command = SetTransitionType) then
     result := TPresmasterMessageSwitchTransitionType;
   if (Format = FormatSimple) and (Command = PollCommand) then
     result := TPresmasterMessagePoll;
@@ -298,7 +318,6 @@ end;
 procedure TPresmasterMessage.WriteSpecific(const aStream: TStream);
 begin
 end;
-
 
 constructor TPresmasterMessageUnknown.Create;
 begin
@@ -404,6 +423,7 @@ end;
 
 procedure TPresmasterMessageSwitch.WriteSpecific(const aStream: TStream);
 begin
+  Log.Write('WriteSpecific method running...');
   WritePresmasterWord(aStream, SwitchTo);
 end;
 
@@ -412,10 +432,24 @@ begin
   result := 'Set Transition Type: ' + IntToStr(SwitchTo);
 end;
 
+
+constructor TPresmasterMessageSwitchTransitionTypeReport.Create;
+begin
+  inherited Create;
+  Command := AnswerSwitchTransitionType;
+end;
+
+function TPresmasterMessageSwitchTransitionTypeReport.ToTextInternal: string;
+begin
+  result := 'Transition Type Set: ' + IntToStr(SwitchTo);
+end;
+
+
 function TPresmasterMessageSwitchVideo.ToTextInternal: string;
 begin
   result := 'Set TX Video ' + IntToStr(SwitchTo);
 end;
+
 
 function TPresmasterMessageSwitchAudio.ToTextInternal: string;
 begin
@@ -430,7 +464,7 @@ end;
 constructor TPresmasterMessageSwitchPresetVideoAnswer.Create;
 begin
   inherited Create;
-  Command := AnswerSwitchVideoPresetCommand;
+  Command := AnswerSwitchAudioPresetCommand;
 end;
 
 function TPresmasterMessageSwitchPresetVideoAnswer.ToTextInternal: string;
