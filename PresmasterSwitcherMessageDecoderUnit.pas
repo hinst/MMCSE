@@ -17,6 +17,7 @@ uses
   CustomSwitcherMessageListUnit,
   CustomSwitcherMessageDecoderUnit,
   PresmasterSwitcherMessage,
+  PresmasterSwitcherExtendedMessage,
   PresmasterSwitcherMessageListUnit;
 
 type
@@ -32,11 +33,18 @@ type
     procedure DecodeMessage;
     procedure ReadFormatField;
     procedure ReadCommandField;
-    procedure ResolveSpecific;
+    procedure ResolveSpecific; overload;
     procedure ReadSpecific;
     procedure ReadSimpleCommand;
     procedure ReadExtendedCommand;
     procedure ReadSimpleSetMessageTail;
+
+    {$Region Resolving capabilities}
+      // metohd: CLASS <-> HEX CODE
+    class function DetectClass(const aFormat: Byte; const aCommand: Word): TPresmasterMessageClass;
+    class function CreateSpecific(const aMessage: TPresmasterMessage): TPresmasterMessage;
+    class procedure ResolveSpecific(var aResult: TPresmasterMessage); overload;
+    {$EndRegion}
   public
     property LatestMessage: TPresmasterMessage read GetLatestMessage write SetLatestMessage;
     procedure Decode; override;
@@ -127,7 +135,7 @@ var
 begin
   m := LatestMessage;
   AssertAssigned(m, 'm', TVariableType.Local);
-  TPresmasterMessage.ResolveSpecific(m);
+  ResolveSpecific(m);
   LatestMessage := m;
 end;
 
@@ -158,6 +166,62 @@ begin
     Stream.ReadBuffer(sourceNumber, 2)
   else
     sourceNumber := formatTail;
+end;
+
+class function TPresmasterSwitcherMessageDecoder.DetectClass(const aFormat: Byte;
+  const aCommand: Word): TPresmasterMessageClass;
+const
+  Simple = TPresmasterMessage.FormatSimple;
+  Extended = TPresmasterMessage.FormatExtended;
+var
+  command: word;
+begin
+  result := nil;
+  {$Region TypeDetection}
+  with TPresmasterMessage do
+  begin
+    {$Region Simple Format}
+    if (aFormat = Simple) and (aCommand = SetTransitionType) then
+      result := TPresmasterMessageSwitchTransitionType;
+    if (aFormat = Simple) and (aCommand = PollCommand) then
+      result := TPresmasterMessagePoll;
+    if (aFormat = Simple) and (aCommand = SetTXVideo) then
+      result := TPresmasterMessageSwitchVideo;
+    if (aFormat = Simple) and (aCommand = SetTXAudio) then
+      result := TPresmasterMessageSwitchAudio;
+    if (aFormat = Simple) and (aCommand = SetPresetVideo) then
+      result := TPresmasterMessageSwitchPresetVideo;
+    if (aFormat = Simple) and (aCommand = SetPresetAudio) then
+      result := TPresmasterMessageSwitchPresetAudio;
+    {$EndRegion}
+    {$Region Extended Format}
+    if (aFormat = Extended) and (aCommand = VoiceoverArmCommand) then
+      result := TPresmasterSwitcherVoiceoverArmCommand;
+    {$EndRegion}
+  end;
+  {$EndRegion}
+  if result = nil then
+    result := TPresmasterMessageUnknown;
+end;
+
+class function TPresmasterSwitcherMessageDecoder.CreateSpecific(const aMessage: TPresmasterMessage)
+  : TPresmasterMessage;
+var
+  t: TPresmasterMessageClass;
+begin
+  t := DetectClass(aMessage.Format, aMessage.Command);
+  result := t.Create;
+  result.Assign(aMessage);
+end;
+
+class procedure TPresmasterSwitcherMessageDecoder.ResolveSpecific(var aResult: TPresmasterMessage);
+var
+  result: TPresmasterMessage;
+begin
+  result := CreateSpecific(aResult);
+  result.Assign(aResult);
+  aResult.Free;
+  aResult := result;
 end;
 
 procedure TPresmasterSwitcherMessageDecoder.ReadSpecific;

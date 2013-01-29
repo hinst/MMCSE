@@ -24,7 +24,6 @@ type
   TPresmasterMessage = class(TCustomSwitcherMessage)
   public
     constructor Create; override;
-    class function CreateSpecific(const aMessage: TPresmasterMessage): TPresmasterMessage;
   public const
     {$Region Formats}
     FormatSimple = $FF;
@@ -45,7 +44,8 @@ type
     AnswerPollCommand = $5E;
     {$EndRegion}
     {$Region ExtendedCommands}
-    VoiceoverArm = $0013;
+    VoiceoverArmCommand = $0013;
+    AnswerVoiceoverArmCommand = $0813;
     {$EndRegion}
   protected
     FFormat: byte;
@@ -66,9 +66,8 @@ type
     class function FormatToText(const aFormat: byte): string; overload;
     class function CommandToHex(const aFormat: byte; const aCommand: word): string;
     class function CommandToText(const aFormat: byte; const aCommand: word): string; overload;
-    class function SimpleCommandToText(const aCommand: word): string;
-    function DetectClass: TPresmasterMessageClass; // CLASS <-> HEX CODE
-    class procedure ResolveSpecific(var aResult: TPresmasterMessage);
+    class function SimpleCommandToText(const aCommand: Word): string;
+    class function ExtendedCommandToText(const aCommand: Word): string;
     procedure ReadSpecific(const aStream: TStream); virtual;
     procedure WriteSpecific(const aStream: TStream); virtual;
   end;
@@ -167,16 +166,6 @@ begin
   FLog := TLog.Create(GlobalLogManager, self.ClassName);
 end;
 
-class function TPresmasterMessage.CreateSpecific(const aMessage: TPresmasterMessage)
-  : TPresmasterMessage;
-var
-  t: TPresmasterMessageClass;
-begin
-  t := aMessage.DetectClass;
-  result := t.Create;
-  result.Assign(aMessage);
-end;
-
 function TPresmasterMessage.ToTextInternal: string;
 begin
   result := 'Cmmd: ' + CommandToText;
@@ -234,7 +223,7 @@ begin
   end;
 end;
 
-class function TPresmasterMessage.CommandToHex(const aFormat: byte; const aCommand: word): string;
+class function TPresmasterMessage.CommandToHex(const aFormat: Byte; const aCommand: Word): string;
 var
   commandAsHex: string;
 begin
@@ -250,66 +239,49 @@ begin
   result := result + commandAsHex;
 end;
 
-class function TPresmasterMessage.CommandToText(const aFormat: byte; const aCommand: word): string;
+class function TPresmasterMessage.CommandToText(const aFormat: Byte; const aCommand: Word): string;
 begin
-  result := '';
-  if aFormat = FormatSimple then
+  case aFormat of
+  FormatSimple:
     result := SimpleCommandToText(aCommand);
-  if result = '' then
-    result := 'Unknown command: ' + CommandToHex(aFormat, aCommand);
+  FormatExtended:
+    result := ExtendedCommandToText(aCommand);
+  else
+    result := 'Unknown: ' + CommandToHex(aFormat, aCommand) + '; format: unknown';
+  end;
 end;
 
-class function TPresmasterMessage.SimpleCommandToText(const aCommand: word): string;
+class function TPresmasterMessage.SimpleCommandToText(const aCommand: Word): string;
+begin
+  case aCommand of
+  SetAUXBusCommand:
+    result := 'Set AUX Bus';
+  SetTXVideo:
+    result := 'Set TX Video';
+  SetTXAudio:
+    result := 'Set TX Audio';
+  SetPresetVideo:
+    result := 'Set Preset Video';
+  SetPresetAudio:
+    result := 'Set Preset Audio';
+  PollCommand:
+    result := 'Poll';
+  AnswerPollCommand:
+    result := 'AnswerPoll';
+  else
+    result := 'Unknown simple: ' + CommandToHex(FormatSimple, aCommand);
+  end;
+end;
+
+class function TPresmasterMessage.ExtendedCommandToText(const aCommand: Word): string;
 begin
   result := '';
-  if aCommand = SetAUXBusCommand then
-    result := 'Set AUX Bus';
-  if aCommand = SetTXVideo then
-    result := 'Set TX Video';
-  if aCommand = SetTXAudio then
-    result := 'Set TX Audio';
-  if aCommand = SetPresetVideo then
-    result := 'Set Preset Video';
-  if aCommand = SetPresetAudio then
-    result := 'Set Preset Audio';
-  if aCommand = PollCommand then
-    result := 'Poll';
-  if aCommand = AnswerPollCommand then
-    result := 'AnswerPoll';
-  if result = '' then
-    result := 'Unknown simple: ' + CommandToHex(FormatSimple, aCommand);
-end;
-
-  // this is where command Delphi classes and command hexadecimal codes
-function TPresmasterMessage.DetectClass: TPresmasterMessageClass;
-begin
-  result := nil;
-  {$Region TypeDetection}
-  if (Format = FormatSimple) and (Command = SetTransitionType) then
-    result := TPresmasterMessageSwitchTransitionType;
-  if (Format = FormatSimple) and (Command = PollCommand) then
-    result := TPresmasterMessagePoll;
-  if (Format = FormatSimple) and (Command = SetTXVideo) then
-    result := TPresmasterMessageSwitchVideo;
-  if (Format = FormatSimple) and (Command = SetTXAudio) then
-    result := TPresmasterMessageSwitchAudio;
-  if (Format = FormatSimple) and (Command = SetPresetVideo) then
-    result := TPresmasterMessageSwitchPresetVideo;
-  if (Format = FormatSimple) and (Command = SetPresetAudio) then
-    result := TPresmasterMessageSwitchPresetAudio;
-  {$EndRegion}
-  if result = nil then
-    result := TPresmasterMessageUnknown;
-end;
-
-class procedure TPresmasterMessage.ResolveSpecific(var aResult: TPresmasterMessage);
-var
-  result: TPresmasterMessage;
-begin
-  result := CreateSpecific(aResult);
-  result.Assign(aResult);
-  aResult.Free;
-  aResult := result;
+  case aCommand of
+  VoiceoverArmCommand:
+    result := 'Voiceover Arm';
+  AnswerVoiceoverArmCommand:
+    result := 'Answer Voiceover Arm';
+  end;
 end;
 
 procedure TPresmasterMessage.ReadSpecific(const aStream: TStream);
