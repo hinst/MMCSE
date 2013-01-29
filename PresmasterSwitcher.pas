@@ -9,11 +9,13 @@ uses
 
   UAdditionalExceptions,
   UTextUtilities,
+  UMath,
 
   CustomSwitcherMessageUnit,
   CustomSwitcherUnit,
   CustomSwitcherFactoryUnit,
   PresmasterSwitcherMessage,
+  PresmasterSwitcherExtendedMessage,
   PresmasterSwitcherMessageDecoderUnit,
   PresmasterSwitcherMessageEncoderUnit;
 
@@ -22,17 +24,32 @@ type
   public
     constructor Create; override;
     procedure Startup; override;
+  public const
+    VoiceoverCount = 10; //< Not sure about this one
   protected
+    FVoiceoverStatus: array[0..VoiceoverCount - 1] of Boolean;
     function GetAdditionalMessageLogTags(const aMessage: TCustomSwitcherMessage): string; overload;
       override;
     function GetAdditionalMessageLogTags(const aMessage: TPresmasterMessage): string; overload;
     function ProcessMessage(const aMessage: TCustomSwitcherMessage): TCustomSwitcherMessage;
       overload; override;
     function ProcessMessage(const aMessage: TPresmasterMessage): TPresmasterMessage; overload;
+    function ProcessVoiceoverArmCommand(const aMessage: TPresmasterSwitcherVoiceoverArmCommand)
+      : TPresmasterSwitcherVoiceoverArmCommandAnswer;
+    function SwitchArmState(const aIndex, aState: Byte): Byte;
+    procedure CleanVoiceoverStatus;
   end;
 
 
 implementation
+
+procedure TPresmasterSwitcher.CleanVoiceoverStatus;
+var
+  i: integer;
+begin
+  for i := 0 to Length(FVoiceoverStatus) do
+    FVoiceoverStatus[i] := False;
+end;
 
 constructor TPresmasterSwitcher.Create;
 begin
@@ -45,7 +62,8 @@ begin
   Log.Write('Starting up Presmaster switcher...');
   {$ENDIF}
   FDecoderClass := TPresmasterSwitcherMessageDecoder;
-  FEncoderClass := TPresmasterSwitcherMessageEncoder;
+  FEncoderClass := TPresmasterSwitcherMessageEncoder;  
+  CleanVoiceoverStatus;
 end;
 
 function TPresmasterSwitcher.GetAdditionalMessageLogTags(const aMessage: TCustomSwitcherMessage)
@@ -95,6 +113,34 @@ begin
         (aMessage as TPresmasterMessageSwitchPresetAudio).SwitchTo
       );
   {$EndRegion}
+  if aMessage is TPresmasterSwitcherVoiceoverArmCommand then
+    ProcessVoiceoverArmCommand(aMessage as TPresmasterSwitcherVoiceoverArmCommand)
+end;
+
+function TPresmasterSwitcher.ProcessVoiceoverArmCommand(
+  const aMessage: TPresmasterSwitcherVoiceoverArmCommand)
+  : TPresmasterSwitcherVoiceoverArmCommandAnswer;
+begin
+  result := TPresmasterSwitcherVoiceoverArmCommandAnswer.Create(
+      aMessage.Index, SwitchArmState(aMessage.Index, aMessage.State));
+end;
+
+function TPresmasterSwitcher.SwitchArmState(const aIndex, aState: Byte): Byte;
+begin
+  AssertIndex(0, aIndex, Length(FVoiceoverStatus) - 1);
+  case aState of
+  TPresmasterSwitcherVoiceoverArmCommand.StateDisarm:
+    FVoiceoverStatus[aIndex] := False;
+  TPresmasterSwitcherVoiceoverArmCommand.StateOpposite:
+    Reverse(FVoiceoverStatus[aIndex]);
+  end;//of case
+
+  case FVoiceoverStatus[aIndex] of
+  false:
+    result := TPresmasterSwitcherVoiceoverArmCommandAnswer.StateDisarmed;
+  true:
+    result := TPresmasterSwitcherVoiceoverArmCommandAnswer.StateArmed;
+  end;//of case
 end;
 
 initialization

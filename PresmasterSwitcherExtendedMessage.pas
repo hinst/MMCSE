@@ -5,21 +5,25 @@ interface
 uses
   SysUtils,
   Classes,
+
   UMath,
+  UStreamUtilities,
+  
   PresmasterSwitcherMessage;
 
 type
 
-  TPresmasterSwitcherExtendedCommand = class(TPresmasterMessage)
+  TPresmasterSwitcherExtendedMessage = class(TPresmasterMessage)
   public
     procedure ReadSpecific(const aStream: TStream); overload; override;
+    procedure WriteSpecific(const aStream: TStream); overload; override;
   public const
     LogDebugChecksumVerification = true;
   public type
     EChecksumIncorrect = class(Exception);
   protected
       // this method rewinds the specified stream to the initial position,
-      // so after calling it the stream Position property remains unchanged 
+      // so after calling it the stream Position property remains unchanged
     procedure AssertChecksum(const aStream: TStream; const aDataLength: Byte);
     function VerifyChecksum(const aStream: TStream; const aDataLength: Byte;
       out actualSum, specifiedSum: Byte): boolean;
@@ -28,30 +32,41 @@ type
     class function EvaluateChecksum(const aStream: TStream; const aDataLength: Byte): Byte;
       // this method is meant to be overridden in descendant classes
     procedure ReadSpecific(const aStream: TStream; const aDataLength: Byte); overload; virtual;
+      // this method is meant to be overridden in descendant classes
+    procedure WriteSpecificDescendantPlug(const aStream: TStream); virtual;
+    procedure WriteExtendedData(const aStream, aData: TStream); overload;
+    procedure WriteExtendedData(const aStream: TStream); overload;
   end;
 
   // HEX 00 13
-  TPresmasterSwitcherVoiceoverArmCommand = class(TPresmasterSwitcherExtendedCommand)
+  TPresmasterSwitcherVoiceoverArmCommand = class(TPresmasterSwitcherExtendedMessage)
   protected
-    FMixerIndex: Byte;
-    FMixerState: Byte;
+    FIndex, FState: Byte;
     procedure ReadSpecific(const aStream: TStream; const aDataLength: Byte); overload; override;
+  public const
+    StateOpposite = $00;
+    StateDisarm = $04;
   public
-    property MixerIndex: Byte read FMixerIndex;
-    property MixerState: Byte read FMixerState;
+    property Index: Byte read FIndex;
+    property State: Byte read FState;
   end;
 
   // HEX 08 13
-  TPresmasterSwitchVoiceoverArmCommandAnswer = class(TPresmasterMessage)
+  TPresmasterSwitcherVoiceoverArmCommandAnswer = class(TPresmasterSwitcherExtendedMessage)
   public
-    constructor Create; override;
+    constructor Create; overload; override;
+    constructor Create(const aIndex, aState: Byte); overload;
+  public const
+    StateDisarmed = $00;
+    StateArmed = $01;
   protected
+    FIndex, FState: Byte;
     procedure WriteSpecific(const aStream: TStream); override;
   end;
 
 implementation
 
-procedure TPresmasterSwitcherExtendedCommand.ReadSpecific(const aStream: TStream);
+procedure TPresmasterSwitcherExtendedMessage.ReadSpecific(const aStream: TStream);
 var
   dataLength: Byte;
   mixerIndex: Byte;
@@ -62,7 +77,12 @@ begin
   ReadSpecific(aStream, dataLength);
 end;
 
-procedure TPresmasterSwitcherExtendedCommand.AssertChecksum(const aStream: TStream;
+procedure TPresmasterSwitcherExtendedMessage.WriteSpecific(const aStream: TStream);
+begin
+  inherited WriteSpecific(aStream);
+end;
+
+procedure TPresmasterSwitcherExtendedMessage.AssertChecksum(const aStream: TStream;
   const aDataLength: Byte);
 var
   checksumCorrect: boolean;
@@ -73,7 +93,7 @@ begin
     raise EChecksumIncorrect.Create( DebugChecksumMessage(actual, specified) );
 end;
 
-function TPresmasterSwitcherExtendedCommand.VerifyChecksum(const aStream: TStream;
+function TPresmasterSwitcherExtendedMessage.VerifyChecksum(const aStream: TStream;
   const aDataLength: Byte; out actualSum, specifiedSum: Byte): boolean;
 var
   initialPosition: Int64;
@@ -87,7 +107,7 @@ begin
   aStream.Position := initialPosition;
 end;
 
-class function TPresmasterSwitcherExtendedCommand.DebugChecksumMessage(
+class function TPresmasterSwitcherExtendedMessage.DebugChecksumMessage(
   const aActual, aSpecified: Byte): string;
 begin
   result :=
@@ -98,7 +118,7 @@ begin
     + ' = specified';
 end;
 
-class function TPresmasterSwitcherExtendedCommand.EvaluateChecksum(const aStream: TStream;
+class function TPresmasterSwitcherExtendedMessage.EvaluateChecksum(const aStream: TStream;
   const aDataLength: Byte): Byte;
 var
   i: Byte;
@@ -114,9 +134,36 @@ begin
   result := sum;
 end;
 
-procedure TPresmasterSwitcherExtendedCommand.ReadSpecific(const aStream: TStream;
+procedure TPresmasterSwitcherExtendedMessage.ReadSpecific(const aStream: TStream;
   const aDataLength: Byte);
 begin
+end;
+
+procedure TPresmasterSwitcherExtendedMessage.WriteSpecificDescendantPlug(const aStream: TStream);
+begin
+end;
+
+procedure TPresmasterSwitcherExtendedMessage.WriteExtendedData(const aStream, aData: TStream);
+var
+  checkSum, dataSize: byte;
+begin
+  Rewind(aData);
+  checkSum := EvaluateChecksum(aData, aData.Size);
+  dataSize := Byte(aData.Size);
+  Rewind(aData);
+  aStream.Write(dataSize, sizeOf(dataSize)); // data size
+  aStream.CopyFrom(aData, aData.Size); // data
+  aStream.Write(checkSum, sizeOf(checkSum));
+end;
+
+procedure TPresmasterSwitcherExtendedMessage.WriteExtendedData(const aStream: TStream);
+var
+  data: TStream;
+begin
+  data := TMemoryStream.Create;
+  WriteSpecificDescendantPlug(data);
+  WriteExtendedData(aStream, data);
+  FreeAndNil(data);
 end;
 
 
@@ -124,21 +171,29 @@ procedure TPresmasterSwitcherVoiceoverArmCommand.ReadSpecific(const aStream: TSt
   const aDataLength: Byte);
 begin
   inherited ReadSpecific(aStream, aDataLength);
-  aStream.Read(FMixerIndex, sizeOf(FMixerIndex));
-  aStream.Read(FMixerState, sizeOf(FMixerState));
+  aStream.Read(FIndex, sizeOf(FIndex));
+  aStream.Read(FState, sizeOf(FState));
 end;
 
 
-constructor TPresmasterSwitchVoiceoverArmCommandAnswer.Create;
+constructor TPresmasterSwitcherVoiceoverArmCommandAnswer.Create(const aIndex, aState: Byte);
+begin
+  Create;
+  FIndex := aIndex;
+  FState := aState;
+end;
+
+constructor TPresmasterSwitcherVoiceoverArmCommandAnswer.Create;
 begin
   inherited Create;
   Command := AnswerVoiceoverArmCommand;
 end;
 
-procedure TPresmasterSwitchVoiceoverArmCommandAnswer.WriteSpecific(const aStream: TStream);
+procedure TPresmasterSwitcherVoiceoverArmCommandAnswer.WriteSpecific(const aStream: TStream);
 begin
   inherited WriteSpecific(aStream);
-
+  aStream.Write(FIndex, sizeOf(FIndex));
+  aStream.Write(FState, sizeOf(FState));
 end;
 
 
