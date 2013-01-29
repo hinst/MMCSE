@@ -45,6 +45,7 @@ type
     AnswerPollCommand = $5E;
     {$EndRegion}
     {$Region ExtendedCommands}
+    VoiceoverArm = $0013;
     {$EndRegion}
   protected
     FFormat: byte;
@@ -423,7 +424,6 @@ end;
 
 procedure TPresmasterMessageSwitch.WriteSpecific(const aStream: TStream);
 begin
-  Log.Write('WriteSpecific method running...');
   WritePresmasterWord(aStream, SwitchTo);
 end;
 

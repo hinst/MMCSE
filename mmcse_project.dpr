@@ -36,7 +36,8 @@ uses
   PresmasterSwitcherMessage in 'PresmasterSwitcherMessage.pas',
   PresmasterSwitcherMessageEncoderUnit in 'PresmasterSwitcherMessageEncoderUnit.pas',
   CustomSwitcherMessageListUnit in 'CustomSwitcherMessageListUnit.pas',
-  PresmasterSwitcherMessageListUnit in 'PresmasterSwitcherMessageListUnit.pas';
+  PresmasterSwitcherMessageListUnit in 'PresmasterSwitcherMessageListUnit.pas',
+  PresmasterSwitcherExtendedMessage in 'PresmasterSwitcherExtendedMessage.pas';
 
 var
   application: TMMCSEApplication;
