@@ -47,7 +47,7 @@ procedure TPresmasterSwitcher.CleanVoiceoverStatus;
 var
   i: integer;
 begin
-  for i := 0 to Length(FVoiceoverStatus) do
+  for i := 0 to Length(FVoiceoverStatus) - 1 do
     FVoiceoverStatus[i] := False;
 end;
 

@@ -89,8 +89,11 @@ var
   actual, specified: byte;
 begin
   checksumCorrect := VerifyChecksum(aStream, aDataLength, actual, specified);
+  {
   if not checksumCorrect then
     raise EChecksumIncorrect.Create( DebugChecksumMessage(actual, specified) );
+
+  }
 end;
 
 function TPresmasterSwitcherExtendedMessage.VerifyChecksum(const aStream: TStream;
